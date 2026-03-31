@@ -37,11 +37,13 @@ export const computeRankedHosts = (hosts: any[], sessions: any[], filterSessionI
   const targetSessions = filterSessionId === 'all' ? sessions : sessions.filter(s => s.id === filterSessionId);
 
   targetSessions.forEach(session => {
+    const costPerShift = session.totalSessions > 0 ? (session.capital || 15480000) / session.totalSessions : 0;
+
     Object.entries(session.financials).forEach(([key, record]: [string, any]) => {
       const hostId = session.schedule[key];
       if (hostId && incomes[hostId] !== undefined) {
-        const res = calculateSessionFinance(record, 0); // Capital doesn't affect TikTok profit
-        incomes[hostId] += res.tiktokProfit;
+        const res = calculateSessionFinance(record, costPerShift); 
+        incomes[hostId] += res.companyProfit;
       }
     });
   });

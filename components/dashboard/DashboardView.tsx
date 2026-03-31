@@ -54,7 +54,7 @@ export default function DashboardView() {
 
     return Object.values(stats)
       .filter((s: any) => s.count > 0)
-      .sort((a: any, b: any) => b.lnTikTok - a.lnTikTok)
+      .sort((a: any, b: any) => b.lnCty - a.lnCty)
       .map((s: any, index) => {
         let currentGroup = 'C';
         if (index < 4) currentGroup = 'A';
@@ -143,7 +143,7 @@ export default function DashboardView() {
           <CardHeader className="bg-slate-900 text-white py-4">
             <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest">
               <TrendingUp size={16} />
-              Xếp Hạng Host Theo Lợi Nhuận TikTok
+              Xếp Hạng Host Theo Lợi Nhuận Công Ty
             </CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
@@ -157,8 +157,8 @@ export default function DashboardView() {
                   <th className="p-3 text-right">ADS</th>
                   <th className="p-3 text-right">CP Host</th>
                   <th className="p-3 text-right">LN Sàn</th>
-                  <th className="p-3 text-right font-bold text-emerald-600">LN TikTok ▾</th>
-                  <th className="p-3 text-right font-bold text-blue-600">LN Công Ty</th>
+                  <th className="p-3 text-right font-bold text-emerald-600">LN TikTok</th>
+                  <th className="p-3 text-right font-bold text-blue-600">LN Công Ty ▾</th>
                   <th className="p-3 text-right bg-yellow-50 font-black text-slate-900">LN TK/ca</th>
                 </tr>
               </thead>
