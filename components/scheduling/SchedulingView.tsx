@@ -103,6 +103,10 @@ export default function SchedulingView() {
 
   const hostsByGroup = (group: string) => hosts.filter(h => h.group === group);
 
+  const getHostShiftCount = (hostId: string) => {
+    return Object.values(currentSession.schedule).filter(id => id === hostId).length;
+  };
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex flex-1 p-6 gap-6 overflow-hidden h-full">
@@ -147,7 +151,16 @@ export default function SchedulingView() {
                               >
                                 <div className="flex flex-col">
                                   <span className="text-sm font-bold">{host.name}</span>
-                                  <span className="text-[10px] text-muted-foreground">{host.note || "-"}</span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded">
+                                      Ca: <span className="font-bold text-primary">{getHostShiftCount(host.id)}</span>
+                                    </span>
+                                    {host.note && (
+                                      <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
+                                        - {host.note}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <ShieldCheck size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
