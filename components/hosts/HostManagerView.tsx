@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Host, HostGroup } from '@/types';
 import { Plus, Edit2, Trash2, Award, Save, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatCurrency, calculateSessionFinance } from '@/lib/finance';
+import { formatCurrency, calculateSessionFinance, computeRankedHosts } from '@/lib/finance';
 
 export default function HostManagerView() {
   const { state, addHost, updateHost, deleteHost, updateSessionMeta } = useApp();
@@ -19,11 +19,13 @@ export default function HostManagerView() {
   const [editForm, setEditForm] = useState<Partial<Host>>({});
   const [isAdding, setIsAdding] = useState(false);
 
-  // Group hosts for display
+  // Group and sort hosts dynamically based on all-time TikTok profit
+  const rankedHosts = React.useMemo(() => computeRankedHosts(hosts, state.sessions, 'all'), [hosts, state.sessions]);
+
   const groupedHosts = {
-    'A': hosts.filter(h => h.group === 'A'),
-    'B': hosts.filter(h => h.group === 'B'),
-    'C': hosts.filter(h => h.group === 'C'),
+    'A': rankedHosts.filter((h: any) => h.group === 'A'),
+    'B': rankedHosts.filter((h: any) => h.group === 'B'),
+    'C': rankedHosts.filter((h: any) => h.group === 'C'),
   };
 
   const handleEditClick = (host: Host) => {
@@ -75,53 +77,13 @@ export default function HostManagerView() {
     }
   };
 
-  const autoRankHosts = () => {
-    if (!currentSession) {
-      alert("Không có phiên làm việc nào để lấy dữ liệu!");
-      return;
-    }
+  const renderHostRow = (hostParam: any, isNew = false) => {
+    // If it's a new host being added, use formState. Otherwise, use the dynamically ranked host properties (like computed group).
+    const isEditing = editingId === hostParam.id;
+    const formState = isEditing ? editForm : hostParam;
+    const host = hostParam;
     
-    // Tính tổng Lợi Nhuận Tiktok cho mỗi host trong session hiện tại
-    const hostIncomes: Record<string, number> = {};
-    
-    // Khởi tạo 0
-    hosts.forEach(h => hostIncomes[h.id] = 0);
-    
-    // Cộng dồn Lợi Nhuận Tiktok
-    Object.entries(currentSession.financials).forEach(([key, record]) => {
-      const hostId = currentSession.schedule[key];
-      if (hostId && hostIncomes[hostId] !== undefined) {
-        const res = calculateSessionFinance(record, 0); // tiktokProfit không bị ảnh hưởng bởi capital/session
-        hostIncomes[hostId] += res.tiktokProfit;
-      }
-    });
-
-    // Sắp xếp giảm dần theo lợi nhuận
-    const sortedHostIds = Object.keys(hostIncomes).sort((a, b) => hostIncomes[b] - hostIncomes[a]);
-    
-    // Phân nhóm
-    // Top 1-4: A
-    // Top 5-9: B
-    // Top 10+: C
-    sortedHostIds.forEach((id, index) => {
-      let newGroup: HostGroup = 'C';
-      if (index < 4) newGroup = 'A';
-      else if (index < 9) newGroup = 'B';
-      
-      const host = hosts.find(h => h.id === id);
-      if (host && host.group !== newGroup) {
-        updateHost(id, { group: newGroup });
-      }
-    });
-    
-    alert("Đã xếp hạng Host thành công dựa trên Lợi Nhuận TikTok của tháng hiện tại!");
-  };
-
-  const renderHostRow = (host: Host, isNew = false) => {
-    const isEditing = editingId === host.id;
-    const formState = isEditing ? editForm : host;
-    
-    // Tính tổng Lợi nhuận Tiktok trong tháng hiện tại
+    // Tổng LN TikTok trong tháng hiện tại (chỉ để hiển thị cột currentIncome như cũ)
     let currentIncome = 0;
     if (currentSession) {
       Object.entries(currentSession.schedule).forEach(([key, hId]) => {
@@ -159,15 +121,15 @@ export default function HostManagerView() {
           )}
         </td>
         <td className="p-3">
-          {isEditing ? (
+          {isNew ? (
             <select 
               value={formState.group}
               onChange={e => setEditForm({...formState, group: e.target.value as HostGroup})}
               className="h-8 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             >
-              <option value="A">A (Top 1-4)</option>
-              <option value="B">B (Top 5-9)</option>
-              <option value="C">C (Top 10+)</option>
+              <option value="A">A (Tạm)</option>
+              <option value="B">B (Tạm)</option>
+              <option value="C">C (Tạm)</option>
             </select>
           ) : (
             <span className={cn(
@@ -179,6 +141,7 @@ export default function HostManagerView() {
               Nhóm {host.group}
             </span>
           )}
+          {!isNew && <span className="text-[10px] text-slate-400 ml-2 italic">Tự động xép hạng</span>}
         </td>
         <td className="p-3">
           {isEditing ? (
@@ -255,10 +218,6 @@ export default function HostManagerView() {
           <p className="text-sm text-slate-500">Thêm, sửa, xóa thông tin cá nhân và phân nhóm</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={autoRankHosts} className="border-blue-200 text-blue-700 hover:bg-blue-50">
-            <Award size={16} className="mr-2" />
-            Tự Động Xép Hạng Host (Tháng Này)
-          </Button>
           <Button onClick={handleAddNewClick} disabled={isAdding}>
             <Plus size={16} className="mr-2" />
             Thêm Host Mới

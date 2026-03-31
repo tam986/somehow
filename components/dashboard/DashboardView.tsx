@@ -54,11 +54,18 @@ export default function DashboardView() {
 
     return Object.values(stats)
       .filter((s: any) => s.count > 0)
-      .map((s: any) => ({
-        ...s,
-        lnTkPerShift: s.count > 0 ? s.lnTikTok / s.count : 0
-      }))
-      .sort((a: any, b: any) => b.lnTkPerShift - a.lnTkPerShift);
+      .sort((a: any, b: any) => b.lnTikTok - a.lnTikTok)
+      .map((s: any, index) => {
+        let currentGroup = 'C';
+        if (index < 4) currentGroup = 'A';
+        else if (index < 9) currentGroup = 'B';
+
+        return {
+          ...s,
+          host: { ...s.host, group: currentGroup },
+          lnTkPerShift: s.count > 0 ? s.lnTikTok / s.count : 0
+        };
+      });
   }, [dashboardSessionId, state.sessions, hosts]);
 
   const totals = useMemo(() => {
@@ -136,7 +143,7 @@ export default function DashboardView() {
           <CardHeader className="bg-slate-900 text-white py-4">
             <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest">
               <TrendingUp size={16} />
-              Xếp Hạng Host Theo LN TikTok / Ca
+              Xếp Hạng Host Theo Lợi Nhuận TikTok
             </CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
@@ -150,9 +157,9 @@ export default function DashboardView() {
                   <th className="p-3 text-right">ADS</th>
                   <th className="p-3 text-right">CP Host</th>
                   <th className="p-3 text-right">LN Sàn</th>
-                  <th className="p-3 text-right font-bold text-emerald-600">LN TikTok</th>
+                  <th className="p-3 text-right font-bold text-emerald-600">LN TikTok ▾</th>
                   <th className="p-3 text-right font-bold text-blue-600">LN Công Ty</th>
-                  <th className="p-3 text-right bg-yellow-50 font-black text-slate-900">LN TK/p</th>
+                  <th className="p-3 text-right bg-yellow-50 font-black text-slate-900">LN TK/ca</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

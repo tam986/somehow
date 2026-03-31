@@ -30,6 +30,32 @@ export const calculateSessionFinance = (
     };
 };
 
+export const computeRankedHosts = (hosts: any[], sessions: any[], filterSessionId: string | 'all' = 'all') => {
+  const incomes: Record<string, number> = {};
+  hosts.forEach(h => incomes[h.id] = 0);
+
+  const targetSessions = filterSessionId === 'all' ? sessions : sessions.filter(s => s.id === filterSessionId);
+
+  targetSessions.forEach(session => {
+    Object.entries(session.financials).forEach(([key, record]: [string, any]) => {
+      const hostId = session.schedule[key];
+      if (hostId && incomes[hostId] !== undefined) {
+        const res = calculateSessionFinance(record, 0); // Capital doesn't affect TikTok profit
+        incomes[hostId] += res.tiktokProfit;
+      }
+    });
+  });
+
+  const ranked = [...hosts].sort((a, b) => incomes[b.id] - incomes[a.id]);
+
+  return ranked.map((host, index) => {
+    let group = 'C';
+    if (index < 4) group = 'A';
+    else if (index < 9) group = 'B';
+    return { ...host, group, computedIncome: incomes[host.id] };
+  });
+};
+
 export const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('vi-VN', {
         style: 'decimal',

@@ -6,8 +6,9 @@ import { useApp } from '@/lib/store';
 import { SHIFTS, DAY_NAMES } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
-import { User, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Trash2, User } from 'lucide-react';
 import { Host } from '@/types';
+import { computeRankedHosts } from '@/lib/finance';
 
 // Simple Badge component since I didn't make one
 const BadgeLocal = ({ children, className }: { children: React.ReactNode, className?: string }) => (
@@ -20,10 +21,15 @@ export default function SchedulingView() {
   const { state, updateSchedule } = useApp();
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const hosts = state.hosts;
+  const rankedHosts = React.useMemo(() => computeRankedHosts(hosts, state.sessions, 'all'), [hosts, state.sessions]);
 
   const [pendingSwap, setPendingSwap] = useState<(() => void) | null>(null);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, day: number, shiftId: number } | null>(null);
+  
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
+  const [pendingAssign, setPendingAssign] = useState<{day: number, shiftId: number, hostId: string} | null>(null);
+  const [dontShowAssignAgain, setDontShowAssignAgain] = useState(false);
 
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -40,35 +46,27 @@ export default function SchedulingView() {
     if (destination.droppableId === source.droppableId) return;
 
     if (destination.droppableId.startsWith('cell-')) {
-      const targetCell = destination.droppableId.replace('cell-', ''); // "day-shiftIndex"
+      const targetCell = destination.droppableId.replace('cell-', ''); 
       const [day, shift] = targetCell.split('-').map(Number);
       
       const realHostId = draggableId.split('-').pop() as string;
 
       const performSwap = () => {
-        if (source.droppableId.startsWith('cell-')) {
-           const sourceCell = source.droppableId.replace('cell-', '');
-           const [sDay, sShift] = sourceCell.split('-').map(Number);
-           const destHostId = currentSession.schedule[`${day}-${shift}`];
-           
-           updateSchedule(currentSession.id, sDay, sShift, destHostId || null);
-           updateSchedule(currentSession.id, day, shift, realHostId);
-        } else {
-           updateSchedule(currentSession.id, day, shift, realHostId);
-        }
+         const sourceCell = source.droppableId.replace('cell-', '');
+         const [sDay, sShift] = sourceCell.split('-').map(Number);
+         const destHostId = currentSession.schedule[`${day}-${shift}`];
+         
+         updateSchedule(currentSession.id, sDay, sShift, destHostId || null);
+         updateSchedule(currentSession.id, day, shift, realHostId);
       };
 
-      if (source.droppableId.startsWith('cell-')) {
-         const destHostId = currentSession.schedule[`${day}-${shift}`];
-         if (destHostId && destHostId !== realHostId) {
-            const hideWarning = localStorage.getItem('hide_swap_warning_until');
-            if (hideWarning && parseInt(hideWarning) > Date.now()) {
-                performSwap();
-            } else {
-                setPendingSwap(() => performSwap);
-            }
+      const destHostId = currentSession.schedule[`${day}-${shift}`];
+      if (destHostId && destHostId !== realHostId) {
+         const hideWarning = localStorage.getItem('hide_swap_warning_until');
+         if (hideWarning && parseInt(hideWarning) > Date.now()) {
+             performSwap();
          } else {
-            performSwap();
+             setPendingSwap(() => performSwap);
          }
       } else {
          performSwap();
@@ -90,6 +88,36 @@ export default function SchedulingView() {
     setDontShowAgain(false);
   };
 
+  const handleCellClick = (day: number, shiftId: number) => {
+    if (!selectedHostId) return;
+    
+    // Nếu click vào ô đã có host giống hệt host đang chọn thì bỏ qua
+    const currentOccupant = currentSession.schedule[`${day}-${shiftId}`];
+    if (currentOccupant === selectedHostId) return;
+
+    const hideWarning = localStorage.getItem('hide_assign_warning_until');
+    if (hideWarning && parseInt(hideWarning) > Date.now()) {
+      updateSchedule(currentSession.id, day, shiftId, selectedHostId);
+    } else {
+      setPendingAssign({ day, shiftId, hostId: selectedHostId });
+    }
+  };
+
+  const handleConfirmAssign = () => {
+    if (!pendingAssign) return;
+    if (dontShowAssignAgain) {
+      localStorage.setItem('hide_assign_warning_until', (Date.now() + 24 * 60 * 60 * 1000).toString());
+    }
+    updateSchedule(currentSession.id, pendingAssign.day, pendingAssign.shiftId, pendingAssign.hostId);
+    setPendingAssign(null);
+    setDontShowAssignAgain(false);
+  };
+
+  const handleCancelAssign = () => {
+    setPendingAssign(null);
+    setDontShowAssignAgain(false);
+  };
+
   const removeHost = (day: number, shift: number) => {
     updateSchedule(currentSession.id, day, shift, null);
   };
@@ -101,7 +129,7 @@ export default function SchedulingView() {
     return { name: dayName, date: `${day}/${currentSession.month < 10 ? '0' : ''}${currentSession.month}`, isWeekend };
   };
 
-  const hostsByGroup = (group: string) => hosts.filter(h => h.group === group);
+  const hostsByGroup = (group: string) => rankedHosts.filter((h: any) => h.group === group);
 
   const getHostShiftCount = (hostId: string) => {
     return Object.values(currentSession.schedule).filter(id => id === hostId).length;
@@ -130,47 +158,38 @@ export default function SchedulingView() {
                       </span>
                     </h3>
                   </div>
-                  <Droppable droppableId={`list-${group}`} isDropDisabled={true}>
-                    {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                        {hostsByGroup(group).map((host, index) => (
-                          <Draggable key={host.id} draggableId={host.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={cn(
-                                  "p-3 rounded-xl border flex items-center justify-between transition-all group",
-                                  snapshot.isDragging ? "shadow-2xl scale-105 z-50 ring-2 ring-primary border-transparent" : "bg-white hover:border-primary/50"
-                                )}
-                                style={{
-                                  ...provided.draggableProps.style,
-                                  borderLeft: `4px solid ${host.color}`
-                                }}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-bold">{host.name}</span>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded">
-                                      Ca: <span className="font-bold text-primary">{getHostShiftCount(host.id)}</span>
-                                    </span>
-                                    {host.note && (
-                                      <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
-                                        - {host.note}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <ShieldCheck size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                              </div>
+                  <div className="space-y-2">
+                    {hostsByGroup(group).map((host) => (
+                      <button
+                        key={host.id}
+                        onClick={() => setSelectedHostId(host.id === selectedHostId ? null : host.id)}
+                        className={cn(
+                          "w-full text-left p-3 rounded-xl border flex items-center justify-between transition-all group",
+                          selectedHostId === host.id 
+                            ? "bg-primary/10 border-primary ring-2 ring-primary shadow-md" 
+                            : "bg-white hover:border-primary/50"
+                        )}
+                        style={{
+                          borderLeft: `4px solid ${host.color}`
+                        }}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">{host.name}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded">
+                              Ca: <span className="font-bold text-primary">{getHostShiftCount(host.id)}</span>
+                            </span>
+                            {host.note && (
+                              <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
+                                - {host.note}
+                              </span>
                             )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
+                          </div>
+                        </div>
+                        <ShieldCheck size={14} className={cn("transition-colors", selectedHostId === host.id ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -180,7 +199,8 @@ export default function SchedulingView() {
             <CardContent className="p-4 flex items-start gap-3">
               <AlertCircle size={18} className="text-primary shrink-0 mt-0.5" />
               <div className="text-xs text-primary/80 leading-relaxed">
-                Kéo Host vào bảng lịch để phân ca. Bạn cũng có thể kéo Host từ ca này sang ca khác để đổi vị trí.
+                <span className="font-bold">1. Phân ca:</span> Bấm chọn 1 Host ở danh sách bên trái, sau đó bấm vào ô trống trong lịch để điền.<br/>
+                <span className="font-bold mt-1 block">2. Đổi ca:</span> Vẫn có thể kéo thả Host từ ca này sang ca khác để tráo vị trí như bình thường.
               </div>
             </CardContent>
           </Card>
@@ -222,20 +242,22 @@ export default function SchedulingView() {
                       {SHIFTS.map(shift => {
                         const key = `${day}-${shift.id}`;
                         const hostId = currentSession.schedule[key];
-                        const host = hosts.find(h => h.id === hostId);
+                        const host = rankedHosts.find((h: any) => h.id === hostId);
                         
                         return (
                           <td key={shift.id} className="p-1 border-r last:border-0 align-top h-24">
                             <Droppable droppableId={`cell-${day}-${shift.id}`}>
                               {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.droppableProps}
-                                  className={cn(
-                                    "w-full h-full rounded-lg transition-all flex flex-col p-1 gap-1",
-                                    snapshot.isDraggingOver ? "bg-primary/20 scale-[0.98] ring-2 ring-primary ring-inset" : "bg-transparent hover:bg-slate-50/80"
-                                  )}
-                                >
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    onClick={() => handleCellClick(day, shift.id)}
+                                    className={cn(
+                                      "w-full h-full rounded-lg transition-all flex flex-col p-1 gap-1 cursor-pointer",
+                                      snapshot.isDraggingOver ? "bg-primary/20 scale-[0.98] ring-2 ring-primary ring-inset" : "bg-transparent",
+                                      (!host && selectedHostId) ? "hover:bg-primary/10 hover:border-primary hover:border-dashed border border-transparent" : "hover:bg-slate-50/80"
+                                    )}
+                                  >
                                   {host ? (
                                     <Draggable draggableId={`cell-${day}-${shift.id}-${host.id}`} index={0}>
                                       {(dragProvided, dragSnapshot) => (
@@ -258,7 +280,10 @@ export default function SchedulingView() {
                                               {host.name}
                                             </span>
                                             <button 
-                                              onClick={() => removeHost(day, shift.id)}
+                                              onClick={(e) => {
+                                                e.stopPropagation(); // Avoid triggering cell click when manually deleting
+                                                removeHost(day, shift.id);
+                                              }}
                                               className="text-[10px] opacity-0 group-cell-hover:opacity-100 hover:text-red-500 transition-opacity"
                                             >
                                               ✕
@@ -318,7 +343,7 @@ export default function SchedulingView() {
                 className="rounded border-slate-300"
               />
               <label htmlFor="dont-show" className="text-xs text-slate-500 cursor-pointer">
-                Không nhắc lại cảnh báo này trong hôm nay (24h)
+                Không nhắc lại cảnh báo đổi ca trong 24h
               </label>
             </div>
             <div className="flex justify-end gap-3">
@@ -333,6 +358,50 @@ export default function SchedulingView() {
                 className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg shadow-md hover:bg-primary/90 transition-colors"
               >
                 Chấp Nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Confirmation Modal */}
+      {pendingAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full animate-in zoom-in-95">
+            <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+              <User className="text-primary" />
+              Xác Nhận Phân Ca
+            </h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Bạn có chắc chắn muốn thêm Host <span className="font-bold text-primary">{rankedHosts.find((h: any) => h.id === pendingAssign.hostId)?.name}</span> vào ca này?
+              {currentSession.schedule[`${pendingAssign.day}-${pendingAssign.shiftId}`] && (
+                <span className="block mt-2 text-red-500 font-medium">Lưu ý: Host cũ đang xếp ở ô này sẽ bị thay thế!</span>
+              )}
+            </p>
+            <div className="flex items-center gap-2 mb-6">
+              <input 
+                type="checkbox" 
+                id="dont-show-assign" 
+                checked={dontShowAssignAgain}
+                onChange={(e) => setDontShowAssignAgain(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <label htmlFor="dont-show-assign" className="text-xs text-slate-500 cursor-pointer">
+                Không nhắc lại cảnh báo phân ca trong 24h
+              </label>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={handleCancelAssign}
+                className="px-4 py-2 text-sm font-medium hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Hủy Bỏ
+              </button>
+              <button 
+                onClick={handleConfirmAssign}
+                className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg shadow-md hover:bg-primary/90 transition-colors"
+              >
+                Thêm Vào Ca
               </button>
             </div>
           </div>
