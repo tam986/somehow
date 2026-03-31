@@ -23,6 +23,23 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'host-women-app-state';
 
+// Helper: Firebase silently deletes empty objects. We must restore them.
+const sanitizeState = (rawState: any): AppState => {
+  if (!rawState) return rawState;
+  return {
+    ...rawState,
+    hosts: rawState.hosts || [],
+    sessions: (rawState.sessions || []).map((s: any) => ({
+      ...s,
+      schedule: s.schedule || {},
+      financials: s.financials || {},
+      lockedHosts: s.lockedHosts || [],
+      capital: s.capital || 15480000,
+      totalSessions: s.totalSessions || 129
+    }))
+  };
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>({
     hosts: INITIAL_HOSTS,
@@ -38,7 +55,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const unsubscribe = loadStateFromFirebase((firebaseState) => {
         // Only load if valid 
         if (firebaseState && Array.isArray(firebaseState.sessions)) {
-          setState(firebaseState);
+          setState(sanitizeState(firebaseState));
+        } else {
+          // Fallback to local storage if Firebase is completely empty (Migration step)
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed && Array.isArray(parsed.sessions)) {
+                setState(sanitizeState(parsed));
+              }
+            } catch (e) {
+              console.error("Failed to load local state", e);
+            }
+          }
         }
         setIsLoaded(true);
       });
@@ -48,7 +78,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setState(parsed);
+          setState(sanitizeState(parsed));
         } catch (e) {
           console.error("Failed to load state", e);
         }
@@ -88,7 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(prev => ({
       ...prev,
       sessions: [...prev.sessions, newSession],
-      currentSessionId: prev.currentSessionId || id,
+      currentSessionId: id,
     }));
   };
 

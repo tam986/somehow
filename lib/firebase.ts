@@ -42,9 +42,7 @@ export const loadStateFromFirebase = (onLoaded: (state: AppState) => void) => {
     const dbRef = ref(database, 'appState');
     const unsubscribe = onValue(dbRef, (snapshot: any) => {
         const data = snapshot.val();
-        if (data) {
-            onLoaded(data);
-        }
+        onLoaded(data);
     });
 
     return unsubscribe;

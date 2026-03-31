@@ -1,53 +1,55 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '@/lib/store';
 import { calculateSessionFinance, formatCurrency } from '@/lib/finance';
-import { OPERATIONAL_COST } from '@/lib/constants';
+import { OPERATIONAL_COST, SHIFTS } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Download, TrendingUp, Award, Target } from 'lucide-react';
+import { Download, TrendingUp, Award, Target, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 
 export default function DashboardView() {
   const { state } = useApp();
-  const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const hosts = state.hosts;
+  const [dashboardSessionId, setDashboardSessionId] = useState<string | 'all'>('all');
+
+  // Khởi tạo options lọc
+  const sessionOptions = useMemo(() => {
+    return [...state.sessions].sort((a, b) => b.year === a.year ? b.month - a.month : b.year - a.year);
+  }, [state.sessions]);
 
   const hostStats = useMemo(() => {
-    if (!currentSession) return [];
+
+    const sessionsToAnalyze = dashboardSessionId === 'all' 
+      ? state.sessions 
+      : state.sessions.filter(s => s.id === dashboardSessionId);
+
+    if (sessionsToAnalyze.length === 0) return [];
 
     const stats: any = {};
     hosts.forEach(h => {
-      stats[h.id] = {
-        host: h,
-        count: 0,
-        gmv: 0,
-        ads: 0,
-        cpHost: 0,
-        lnSan: 0,
-        lnTikTok: 0,
-        lnCty: 0,
-      };
+      stats[h.id] = { host: h, count: 0, gmv: 0, ads: 0, cpHost: 0, lnSan: 0, lnTikTok: 0, lnCty: 0 };
     });
 
-    const totalShiftsAssigned = Object.values(currentSession.schedule).filter(id => id !== null).length;
-    const perShiftCost = totalShiftsAssigned > 0 ? OPERATIONAL_COST / totalShiftsAssigned : 0;
+    sessionsToAnalyze.forEach(session => {
+      const perShiftCost = session.totalSessions > 0 ? (session.capital || 15480000) / session.totalSessions : 0;
+      
+      Object.entries(session.schedule).forEach(([key, hostId]) => {
+        if (!hostId || !stats[hostId]) return;
 
-    Object.entries(currentSession.schedule).forEach(([key, hostId]) => {
-      if (!hostId || !stats[hostId]) return;
+        const record = session.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        const res = calculateSessionFinance(record, perShiftCost);
 
-      const record = currentSession.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-      const res = calculateSessionFinance(record, perShiftCost);
-
-      stats[hostId].count += 1;
-      stats[hostId].gmv += record.gmv;
-      stats[hostId].ads += record.ads;
-      stats[hostId].cpHost += (record.cast + record.tro + record.ot);
-      stats[hostId].lnSan += res.platformProfit;
-      stats[hostId].lnTikTok += res.tiktokProfit;
-      stats[hostId].lnCty += res.companyProfit;
+        stats[hostId].count += 1;
+        stats[hostId].gmv += record.gmv;
+        stats[hostId].ads += record.ads;
+        stats[hostId].cpHost += (record.cast + record.tro + record.ot);
+        stats[hostId].lnSan += res.platformProfit;
+        stats[hostId].lnTikTok += res.tiktokProfit;
+        stats[hostId].lnCty += res.companyProfit;
+      });
     });
 
     return Object.values(stats)
@@ -57,7 +59,7 @@ export default function DashboardView() {
         lnTkPerShift: s.count > 0 ? s.lnTikTok / s.count : 0
       }))
       .sort((a: any, b: any) => b.lnTkPerShift - a.lnTkPerShift);
-  }, [currentSession, hosts]);
+  }, [dashboardSessionId, state.sessions, hosts]);
 
   const totals = useMemo(() => {
     return hostStats.reduce((acc: any, curr: any) => ({
@@ -72,7 +74,11 @@ export default function DashboardView() {
   }, [hostStats]);
 
   const exportExcel = () => {
-    if (!currentSession) return;
+    if (hostStats.length === 0) return;
+    
+    const sessionName = dashboardSessionId === 'all' 
+      ? "Tat_Ca_Cac_Thang" 
+      : state.sessions.find(s => s.id === dashboardSessionId)?.name.replace(/\s+/g, '_') || "Export";
     
     const data = hostStats.map((s: any) => ({
       "Host": s.host.name,
@@ -90,22 +96,39 @@ export default function DashboardView() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tong Hop");
-    XLSX.writeFile(wb, `Bao_Cao_${currentSession.name.replace(/\s+/g, '_')}.xlsx`);
+    XLSX.writeFile(wb, `Bao_Cao_${sessionName}.xlsx`);
   };
-
-  if (!currentSession) return null;
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
           <Award className="text-yellow-500" />
           BẢNG TỔNG HỢP HIỆU SUẤT HOST
         </h1>
-        <Button onClick={exportExcel} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-          <Download size={18} />
-          Xuất Báo Cáo Excel
-        </Button>
+        
+        <div className="flex items-center gap-3">
+          <div className="relative flex items-center bg-white border rounded-lg shadow-sm">
+            <Calendar size={14} className="ml-3 text-slate-400 absolute left-0" />
+            <select 
+              className="appearance-none bg-transparent h-9 pl-9 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary rounded-lg"
+              value={dashboardSessionId}
+              onChange={(e) => setDashboardSessionId(e.target.value)}
+            >
+              <option value="all">Tất cả các tháng</option>
+              <optgroup label="Chọn Tháng / Năm">
+                {sessionOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          
+          <Button onClick={exportExcel} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+            <Download size={18} />
+            Xuất Báo Cáo
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

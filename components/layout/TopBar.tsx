@@ -20,21 +20,6 @@ const TopBar: React.FC = () => {
           </div>
         )}
       </div>
-
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" className="gap-2">
-          <Share2 size={16} />
-          <span>Chia sẻ</span>
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Download size={16} />
-          <span>Xuất Excel</span>
-        </Button>
-        <Button size="sm" className="gap-2 shadow-sm">
-          <Save size={16} />
-          <span>Lưu thay đổi</span>
-        </Button>
-      </div>
     </div>
   );
 };

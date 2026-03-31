@@ -12,7 +12,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
-  const { state, addSession, resetAll } = useApp();
+  const { state, addSession, resetAll, setCurrentSession } = useApp();
   const [showAddModal, setShowAddModal] = useState(false);
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -42,8 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
         <span className="font-bold text-xl tracking-tight">SOMEHOW</span>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase px-2 py-1">Menu</p>
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200">
+        <p className="text-xs font-semibold text-muted-foreground uppercase px-2 py-1 mt-2">Menu</p>
         {menuItems.map((item) => (
           <button
             key={item.id}
@@ -63,15 +63,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
         <div className="pt-6">
           <p className="text-xs font-semibold text-muted-foreground uppercase px-2 py-1">Phiên làm việc</p>
           <div className="space-y-1 mt-1">
-            {state.sessions.map(session => (
+            {[...state.sessions]
+              .sort((a, b) => b.year === a.year ? b.month - a.month : b.year - a.year)
+              .map(session => (
               <Button
                 key={session.id}
                 variant="ghost"
                 className={cn(
                   "w-full justify-start font-normal text-sm",
-                  state.currentSessionId === session.id ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                  state.currentSessionId === session.id ? "bg-primary text-primary-foreground font-bold shadow-sm" : "text-muted-foreground hover:bg-slate-100"
                 )}
                 size="sm"
+                onClick={() => setCurrentSession(session.id)}
               >
                 {session.name}
               </Button>
