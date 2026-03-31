@@ -1,0 +1,316 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useApp } from '@/lib/store';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Host, HostGroup } from '@/types';
+import { Plus, Edit2, Trash2, Award, Save, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { formatCurrency, calculateSessionFinance } from '@/lib/finance';
+
+export default function HostManagerView() {
+  const { state, addHost, updateHost, deleteHost, updateSessionMeta } = useApp();
+  const hosts = state.hosts;
+  const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
+  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Host>>({});
+  const [isAdding, setIsAdding] = useState(false);
+
+  // Group hosts for display
+  const groupedHosts = {
+    'A': hosts.filter(h => h.group === 'A'),
+    'B': hosts.filter(h => h.group === 'B'),
+    'C': hosts.filter(h => h.group === 'C'),
+  };
+
+  const handleEditClick = (host: Host) => {
+    setEditingId(host.id);
+    setEditForm(host);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingId && editForm.name) {
+      updateHost(editingId, editForm);
+      setEditingId(null);
+      setEditForm({});
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+    setIsAdding(false);
+  };
+
+  const handleAddNewClick = () => {
+    setIsAdding(true);
+    setEditingId('new');
+    setEditForm({
+      name: '',
+      phone: '',
+      group: 'C',
+      color: '#757575',
+      bgColor: '#E0E0E0',
+      note: ''
+    });
+  };
+
+  const handleSaveNew = () => {
+    if (editForm.name && editForm.group && editForm.color && editForm.bgColor) {
+      addHost(editForm as Omit<Host, 'id'>);
+      setIsAdding(false);
+      setEditingId(null);
+      setEditForm({});
+    } else {
+      alert("Vui lòng điền đủ Tên, Nhóm và Màu sắc!");
+    }
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Bạn có chắc muốn xóa Host: ${name}?`)) {
+      deleteHost(id);
+    }
+  };
+
+  const autoRankHosts = () => {
+    if (!currentSession) {
+      alert("Không có phiên làm việc nào để lấy dữ liệu!");
+      return;
+    }
+    
+    // Tính tổng Lợi Nhuận Tiktok cho mỗi host trong session hiện tại
+    const hostIncomes: Record<string, number> = {};
+    
+    // Khởi tạo 0
+    hosts.forEach(h => hostIncomes[h.id] = 0);
+    
+    // Cộng dồn Lợi Nhuận Tiktok
+    Object.entries(currentSession.financials).forEach(([key, record]) => {
+      const hostId = currentSession.schedule[key];
+      if (hostId && hostIncomes[hostId] !== undefined) {
+        const res = calculateSessionFinance(record, 0); // tiktokProfit không bị ảnh hưởng bởi capital/session
+        hostIncomes[hostId] += res.tiktokProfit;
+      }
+    });
+
+    // Sắp xếp giảm dần theo lợi nhuận
+    const sortedHostIds = Object.keys(hostIncomes).sort((a, b) => hostIncomes[b] - hostIncomes[a]);
+    
+    // Phân nhóm
+    // Top 1-4: A
+    // Top 5-9: B
+    // Top 10+: C
+    sortedHostIds.forEach((id, index) => {
+      let newGroup: HostGroup = 'C';
+      if (index < 4) newGroup = 'A';
+      else if (index < 9) newGroup = 'B';
+      
+      const host = hosts.find(h => h.id === id);
+      if (host && host.group !== newGroup) {
+        updateHost(id, { group: newGroup });
+      }
+    });
+    
+    alert("Đã xếp hạng Host thành công dựa trên Lợi Nhuận TikTok của tháng hiện tại!");
+  };
+
+  const renderHostRow = (host: Host, isNew = false) => {
+    const isEditing = editingId === host.id;
+    const formState = isEditing ? editForm : host;
+    
+    // Tính tổng Lợi nhuận Tiktok trong tháng hiện tại
+    let currentIncome = 0;
+    if (currentSession) {
+      Object.entries(currentSession.schedule).forEach(([key, hId]) => {
+        if (hId === host.id && currentSession.financials[key]) {
+          const res = calculateSessionFinance(currentSession.financials[key], 0);
+          currentIncome += res.tiktokProfit;
+        }
+      });
+    }
+
+    return (
+      <tr key={isNew ? 'new' : host.id} className="border-b hover:bg-slate-50 transition-colors">
+        <td className="p-3">
+          {isEditing ? (
+            <Input 
+              value={formState.name} 
+              onChange={e => setEditForm({...formState, name: e.target.value})}
+              placeholder="Tên Host"
+              className="h-8"
+            />
+          ) : (
+            <span className="font-bold">{host.name}</span>
+          )}
+        </td>
+        <td className="p-3">
+          {isEditing ? (
+            <Input 
+              value={formState.phone || ''} 
+              onChange={e => setEditForm({...formState, phone: e.target.value})}
+              placeholder="Số điện thoại"
+              className="h-8"
+            />
+          ) : (
+            <span className="text-sm text-slate-600">{host.phone || "---"}</span>
+          )}
+        </td>
+        <td className="p-3">
+          {isEditing ? (
+            <select 
+              value={formState.group}
+              onChange={e => setEditForm({...formState, group: e.target.value as HostGroup})}
+              className="h-8 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
+              <option value="A">A (Top 1-4)</option>
+              <option value="B">B (Top 5-9)</option>
+              <option value="C">C (Top 10+)</option>
+            </select>
+          ) : (
+            <span className={cn(
+              "px-2 py-1 rounded-full text-xs font-bold",
+              host.group === 'A' ? "bg-green-100 text-green-700" :
+              host.group === 'B' ? "bg-blue-100 text-blue-700" :
+              "bg-slate-100 text-slate-700"
+            )}>
+              Nhóm {host.group}
+            </span>
+          )}
+        </td>
+        <td className="p-3">
+          {isEditing ? (
+            <div className="flex gap-2 items-center">
+              <input 
+                type="color" 
+                value={formState.color || '#000000'}
+                onChange={e => setEditForm({...formState, color: e.target.value})}
+                className="w-8 h-8 rounded shrink-0"
+              />
+              <span className="text-xs">Viền/Text</span>
+              <input 
+                type="color" 
+                value={formState.bgColor || '#ffffff'}
+                onChange={e => setEditForm({...formState, bgColor: e.target.value})}
+                className="w-8 h-8 rounded shrink-0 ml-2"
+              />
+              <span className="text-xs">Nền</span>
+            </div>
+          ) : (
+             <div className="flex items-center gap-2">
+              <div 
+                className="w-6 h-6 rounded-md border" 
+                style={{ backgroundColor: host.bgColor, borderColor: host.color }} 
+              />
+            </div>
+          )}
+        </td>
+        <td className="p-3">
+          {(!isEditing && !isNew && currentSession) ? (
+            <div className={cn("text-xs font-bold", currentIncome < 0 ? "text-red-500" : currentIncome > 0 ? "text-emerald-600" : "text-slate-600")}>
+              {formatCurrency(currentIncome)}
+            </div>
+          ) : (isEditing && !isNew) ? (
+            <div className="flex justify-end gap-2 pr-6">
+               <span className={cn("text-xs font-bold", currentIncome < 0 ? "text-red-500" : currentIncome > 0 ? "text-emerald-600" : "text-slate-600")}>
+                {formatCurrency(currentIncome)}
+              </span>
+            </div>
+          ) : null}
+        </td>
+        <td className="p-3 text-right">
+          {isEditing ? (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" onClick={isNew ? handleSaveNew : handleSaveEdit} className="h-8 bg-emerald-600 hover:bg-emerald-700">
+                <Save size={14} className="mr-1" /> Lưu
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-8">
+                <X size={14} />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleEditClick(host)}>
+                <Edit2 size={14} className="text-blue-600" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleDelete(host.id, host.name)}>
+                <Trash2 size={14} className="text-red-500" />
+              </Button>
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  return (
+    <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            Quản Lý Danh Sách Host
+          </h2>
+          <p className="text-sm text-slate-500">Thêm, sửa, xóa thông tin cá nhân và phân nhóm</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={autoRankHosts} className="border-blue-200 text-blue-700 hover:bg-blue-50">
+            <Award size={16} className="mr-2" />
+            Tự Động Xép Hạng Host (Tháng Này)
+          </Button>
+          <Button onClick={handleAddNewClick} disabled={isAdding}>
+            <Plus size={16} className="mr-2" />
+            Thêm Host Mới
+          </Button>
+        </div>
+      </div>
+
+      <Card className="border-none shadow-subtle overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-900 text-white uppercase text-xs tracking-wider">
+                <th className="p-3 text-left">Tên Host</th>
+                <th className="p-3 text-left">Số Điện Thoại</th>
+                <th className="p-3 text-left">Nhóm</th>
+                <th className="p-3 text-left">Màu Sắc</th>
+                <th className="p-3 text-left">Lợi Nhuận Tiktok (Tháng)</th>
+                <th className="p-3 text-right">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {isAdding && renderHostRow({
+                id: 'new', name: '', phone: '', group: 'C', color: '#757575', bgColor: '#E0E0E0'
+              }, true)}
+              
+              {/* Group A */}
+              {groupedHosts['A'].length > 0 && (
+                <tr className="bg-green-50/50">
+                  <td colSpan={6} className="p-2 text-xs font-bold text-green-800 uppercase tracking-widest pl-4 border-b">Nhóm A (Top Doanh Thu)</td>
+                </tr>
+              )}
+              {groupedHosts['A'].map(h => renderHostRow(h))}
+
+              {/* Group B */}
+              {groupedHosts['B'].length > 0 && (
+                <tr className="bg-blue-50/50">
+                  <td colSpan={6} className="p-2 text-xs font-bold text-blue-800 uppercase tracking-widest pl-4 border-b">Nhóm B</td>
+                </tr>
+              )}
+              {groupedHosts['B'].map(h => renderHostRow(h))}
+
+              {/* Group C */}
+              {groupedHosts['C'].length > 0 && (
+                <tr className="bg-slate-100">
+                  <td colSpan={6} className="p-2 text-xs font-bold text-slate-700 uppercase tracking-widest pl-4 border-b">Nhóm C</td>
+                </tr>
+              )}
+              {groupedHosts['C'].map(h => renderHostRow(h))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
