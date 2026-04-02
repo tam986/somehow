@@ -108,8 +108,8 @@ export default function DashboardView() {
     const kolRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, lnCty: 0 }; 
     
     // gmvMax values (only if single session is selected)
-    let womenGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
-    let menGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+    let womenGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 } as any;
+    let menGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 } as any;
 
     sessionsToAnalyze.forEach(session => {
       Object.entries(session.schedule).forEach(([key, hostId]) => {
@@ -118,8 +118,16 @@ export default function DashboardView() {
         if (!host) return;
 
         const record = session.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-        // Use 0 for perShiftCost because we only need fees, grossProfit, platformProfit, tiktokProfit
-        const res = calculateSessionFinance(record, 0); 
+        // Tính perShiftCost theo giới tính để LN CÔNG TY = LN TIKTOK - (vốn / số phiên)
+        const isMale = key.endsWith('-male');
+        const capital = isMale
+          ? (session.capitalMale ?? session.capital ?? 15480000)
+          : (session.capitalFemale ?? session.capital ?? 15480000);
+        const totalSessionsGender = isMale
+          ? (session.totalSessionsMale ?? session.totalSessions ?? 129)
+          : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
+        const perShiftCost = totalSessionsGender > 0 ? capital / totalSessionsGender : 0;
+        const res = calculateSessionFinance(record, perShiftCost);
         
         const target = host.gender === 'male' ? menRaw : womenRaw;
         target.gmv += record.gmv;
@@ -139,24 +147,39 @@ export default function DashboardView() {
           kolRaw.gmv += record.gmv;
           kolRaw.ads += record.ads;
           kolRaw.cast += kolRes.cast;
-          kolRaw.tro += record.tro;
+          // kolRaw.tro không tích lũy vì KOL không có tiền trợ live
           kolRaw.lnCty += kolRes.companyProfit;
       });
 
       // gmvMax accumulate (if 'all', otherwise we take from current session below)
       if (dashboardSessionId === 'all') {
         const wMax = session.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        const wFees = Math.round((wMax.gmv || 0) * 0.17);
+        const wGross = Math.round((wMax.gmv || 0) * 0.39);
+        const wPlatform = wGross - wFees - (wMax.ads || 0);
         womenGmvMaxRaw.gmv += wMax.gmv;
         womenGmvMaxRaw.ads += wMax.ads;
         womenGmvMaxRaw.cast += wMax.cast;
         womenGmvMaxRaw.tro += wMax.tro;
-        // Don't accumulate calculated values for GMV MAX row as per user request
+        womenGmvMaxRaw.fees += wFees;
+        womenGmvMaxRaw.grossProfit += wGross;
+        womenGmvMaxRaw.platformProfit += wPlatform;
+        womenGmvMaxRaw.tiktokProfit += wPlatform;
+        womenGmvMaxRaw.lnCty += wPlatform;
 
         const mMax = session.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        const mFees = Math.round((mMax.gmv || 0) * 0.17);
+        const mGross = Math.round((mMax.gmv || 0) * 0.39);
+        const mPlatform = mGross - mFees - (mMax.ads || 0);
         menGmvMaxRaw.gmv += mMax.gmv;
         menGmvMaxRaw.ads += mMax.ads;
         menGmvMaxRaw.cast += mMax.cast;
         menGmvMaxRaw.tro += mMax.tro;
+        menGmvMaxRaw.fees += mFees;
+        menGmvMaxRaw.grossProfit += mGross;
+        menGmvMaxRaw.platformProfit += mPlatform;
+        menGmvMaxRaw.tiktokProfit += mPlatform;
+        menGmvMaxRaw.lnCty += mPlatform;
       }
     });
 
@@ -164,10 +187,16 @@ export default function DashboardView() {
     if (dashboardSessionId !== 'all') {
       const currentSession = sessionsToAnalyze[0];
       const wMax = currentSession?.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-      womenGmvMaxRaw = { ...wMax, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+      const wFees = Math.round((wMax.gmv || 0) * 0.17);
+      const wGross = Math.round((wMax.gmv || 0) * 0.39);
+      const wPlatform = wGross - wFees - (wMax.ads || 0);
+      womenGmvMaxRaw = { ...wMax, fees: wFees, grossProfit: wGross, platformProfit: wPlatform, tiktokProfit: wPlatform, lnCty: wPlatform };
 
       const mMax = currentSession?.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-      menGmvMaxRaw = { ...mMax, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+      const mFees = Math.round((mMax.gmv || 0) * 0.17);
+      const mGross = Math.round((mMax.gmv || 0) * 0.39);
+      const mPlatform = mGross - mFees - (mMax.ads || 0);
+      menGmvMaxRaw = { ...mMax, fees: mFees, grossProfit: mGross, platformProfit: mPlatform, tiktokProfit: mPlatform, lnCty: mPlatform };
     }
 
     const calcObjForKol = (raw: any, gender: 'female' | 'male') => {
@@ -253,8 +282,10 @@ export default function DashboardView() {
     const { isTotal = false, isGmvMax = false, isKol = false, gender } = options;
     const isEditable = (isGmvMax || isKol) && dashboardSessionId !== 'all' && gender;
 
+    // Fields editable on GMV MAX row: gmv, cast, tro, ads
+    const gmvMaxEditableFields: (keyof FinancialRecord)[] = ['gmv', 'cast', 'tro', 'ads'];
     const renderEditableCell = (field: keyof FinancialRecord, value: number, colorClass: string = "", alwaysEditable: boolean = false) => {
-      const canEdit = alwaysEditable || (isGmvMax && isEditable);
+      const canEdit = alwaysEditable || (isGmvMax && isEditable && gmvMaxEditableFields.includes(field));
       if (!canEdit) return <span className={colorClass}>{formatCurrency(value)}</span>;
       return (
         <Input 
@@ -286,8 +317,6 @@ export default function DashboardView() {
                onChange={(e) => updateKolCompanyProfit(dashboardSessionId as string, gender as any, parseCurrency(e.target.value))}
              />
           ) : (
-             isGmvMax && isEditable ? 
-             renderEditableCell('companyProfit', data.lnCty) : 
              formatCurrency(data.lnCty || 0)
           )}
         </td>
@@ -556,7 +585,6 @@ export default function DashboardView() {
                 </thead>
                 <tbody className="divide-y divide-[#3a3a3a]">
                   {renderGenderRow('LIVESTREAM', genderStats.menStream)}
-                  {renderGenderRow('KOL', genderStats.menKol, { isKol: true, gender: 'male' })}
                   {renderGenderRow('GMV MAX', genderStats.menGmvMax, { isGmvMax: true, gender: 'male' })}
                   {renderGenderRow('TỔNG', genderStats.menTotal, { isTotal: true })}
                 </tbody>

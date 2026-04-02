@@ -44,9 +44,10 @@ export const calculateGenderTotalAndProfits = (gmv: number, ads: number, cast: n
   };
 };
 
-export const calculateKolFinance = (record: { gmv: number, ads: number, tro: number, cast?: number }) => {
+export const calculateKolFinance = (record: { gmv: number, ads: number, tro?: number, cast?: number }) => {
   const cast = Math.round(record.gmv * 0.07);
-  const profits = calculateGenderTotalAndProfits(record.gmv, record.ads, cast, record.tro);
+  // KOL không có tiền trợ live, luôn dùng tro=0
+  const profits = calculateGenderTotalAndProfits(record.gmv, record.ads, cast, 0);
   return {
     ...profits,
     cast,

@@ -64,14 +64,12 @@ export default function KolDataEntryView() {
                 <th className="p-2 text-left w-24 sticky left-0 z-20 bg-slate-900 border-r border-slate-700">NGÀY</th>
                 <th className="p-2 text-left w-24">THỜI GIAN</th>
                 <th className="p-2 text-center">CAST HOST</th>
-                <th className="p-2 text-center">TRỢ LIVE</th>
                 <th className="p-2 text-center">GMV</th>
                 <th className="p-2 text-center">ADS</th>
                 <th className="p-2 text-right">PHÍ SÀN</th>
                 <th className="p-2 text-right">LN GỘP</th>
                 <th className="p-2 text-right">LN SÀN</th>
                 <th className="p-2 text-right">LN TIKTOK</th>
-                <th className="p-2 text-right">LN CÔNG TY</th>
               </tr>
             </thead>
             <tbody className="bg-white">
@@ -121,13 +119,7 @@ export default function KolDataEntryView() {
                         value={formatCurrency(p.cast)}
                       />
                     </td>
-                    <td className="p-1 border-r">
-                      <Input 
-                        className="h-8 text-right font-medium text-xs border-transparent focus:border-amber-300 shadow-none" 
-                        value={record.tro === 0 ? '' : formatCurrency(record.tro)}
-                        onChange={(e) => handleChange('tro', parseCurrency(e.target.value))}
-                      />
-                    </td>
+                   
                     <td className="p-1 border-r bg-blue-50/30">
                       <Input 
                         className="h-8 text-right font-bold text-blue-800 text-xs border-transparent focus:border-blue-300 shadow-none" 
@@ -157,7 +149,7 @@ export default function KolDataEntryView() {
                     )}>
                       {formatCurrency(p.tiktokProfit)}
                     </td>
-                    <td className="p-2 border-r text-slate-400"></td>
+                 
                   </tr>
                 );
               })}
@@ -166,7 +158,6 @@ export default function KolDataEntryView() {
               <tr className="bg-slate-900 text-white font-bold">
                 <td colSpan={2} className="p-3 text-center uppercase tracking-wider border-r border-slate-700">TỔNG CỘNG</td>
                 <td className="p-3 text-right border-r border-slate-700">{formatCurrency(totals.cast)}</td>
-                <td className="p-3 text-right border-r border-slate-700">{formatCurrency(totals.tro)}</td>
                 <td className="p-3 text-right border-r border-slate-700 text-blue-400">{formatCurrency(totals.gmv)}</td>
                 <td className="p-3 text-right border-r border-slate-700 text-red-400">{formatCurrency(totals.ads)}</td>
                 <td className="p-3 text-right border-r border-slate-700 text-slate-300">{formatCurrency(totals.fees)}</td>
@@ -178,7 +169,7 @@ export default function KolDataEntryView() {
                 )}>
                   {formatCurrency(totals.tiktokProfit)}
                 </td>
-                <td className="p-3"></td>
+         
               </tr>
             </tfoot>
           </table>
