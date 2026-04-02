@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store';
 import { SHIFTS, DAY_NAMES } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
-import { ShieldCheck, AlertCircle, Trash2, User } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Trash2, User, Users } from 'lucide-react';
 import { Host } from '@/types';
 import { computeRankedHosts } from '@/lib/finance';
 
@@ -22,6 +22,8 @@ export default function SchedulingView() {
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const hosts = state.hosts;
   const rankedHosts = React.useMemo(() => computeRankedHosts(hosts, state.sessions, 'all'), [hosts, state.sessions]);
+
+  const [genderFilter, setGenderFilter] = useState<'female' | 'male'>('female');
 
   const [pendingSwap, setPendingSwap] = useState<(() => void) | null>(null);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -54,13 +56,13 @@ export default function SchedulingView() {
       const performSwap = () => {
          const sourceCell = source.droppableId.replace('cell-', '');
          const [sDay, sShift] = sourceCell.split('-').map(Number);
-         const destHostId = currentSession.schedule[`${day}-${shift}`];
+         const destHostId = currentSession.schedule[`${day}-${shift}-${genderFilter}`];
          
-         updateSchedule(currentSession.id, sDay, sShift, destHostId || null);
-         updateSchedule(currentSession.id, day, shift, realHostId);
+         updateSchedule(currentSession.id, sDay, sShift, genderFilter, destHostId || null);
+         updateSchedule(currentSession.id, day, shift, genderFilter, realHostId);
       };
 
-      const destHostId = currentSession.schedule[`${day}-${shift}`];
+      const destHostId = currentSession.schedule[`${day}-${shift}-${genderFilter}`];
       if (destHostId && destHostId !== realHostId) {
          const hideWarning = localStorage.getItem('hide_swap_warning_until');
          if (hideWarning && parseInt(hideWarning) > Date.now()) {
@@ -92,12 +94,12 @@ export default function SchedulingView() {
     if (!selectedHostId) return;
     
     // Nếu click vào ô đã có host giống hệt host đang chọn thì bỏ qua
-    const currentOccupant = currentSession.schedule[`${day}-${shiftId}`];
+    const currentOccupant = currentSession.schedule[`${day}-${shiftId}-${genderFilter}`];
     if (currentOccupant === selectedHostId) return;
 
     const hideWarning = localStorage.getItem('hide_assign_warning_until');
     if (hideWarning && parseInt(hideWarning) > Date.now()) {
-      updateSchedule(currentSession.id, day, shiftId, selectedHostId);
+      updateSchedule(currentSession.id, day, shiftId, genderFilter, selectedHostId);
     } else {
       setPendingAssign({ day, shiftId, hostId: selectedHostId });
     }
@@ -108,7 +110,7 @@ export default function SchedulingView() {
     if (dontShowAssignAgain) {
       localStorage.setItem('hide_assign_warning_until', (Date.now() + 24 * 60 * 60 * 1000).toString());
     }
-    updateSchedule(currentSession.id, pendingAssign.day, pendingAssign.shiftId, pendingAssign.hostId);
+    updateSchedule(currentSession.id, pendingAssign.day, pendingAssign.shiftId, genderFilter, pendingAssign.hostId);
     setPendingAssign(null);
     setDontShowAssignAgain(false);
   };
@@ -119,7 +121,7 @@ export default function SchedulingView() {
   };
 
   const removeHost = (day: number, shift: number) => {
-    updateSchedule(currentSession.id, day, shift, null);
+    updateSchedule(currentSession.id, day, shift, genderFilter, null);
   };
 
   const getDayLabel = (day: number) => {
@@ -129,7 +131,7 @@ export default function SchedulingView() {
     return { name: dayName, date: `${day}/${currentSession.month < 10 ? '0' : ''}${currentSession.month}`, isWeekend };
   };
 
-  const hostsByGroup = (group: string) => rankedHosts.filter((h: any) => h.group === group);
+  const hostsByGroup = (group: string) => rankedHosts.filter((h: any) => h.group === group && (genderFilter === 'male' ? h.gender === 'male' : h.gender !== 'male'));
 
   const getHostShiftCount = (hostId: string) => {
     return Object.values(currentSession.schedule).filter(id => id === hostId).length;
@@ -137,7 +139,27 @@ export default function SchedulingView() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex flex-1 p-6 gap-6 overflow-hidden h-full">
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="px-6 pt-4">
+          <div className="flex bg-slate-100 p-1 rounded-lg w-max shadow-sm border">
+            <button 
+              className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'female' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
+              onClick={() => setGenderFilter('female')}
+            >
+              <Users size={16} />
+              WOMEN
+            </button>
+            <button 
+              className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'male' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
+              onClick={() => setGenderFilter('male')}
+            >
+              <Users size={16} />
+              MEN
+            </button>
+          </div>
+        </div>
+
+      <div className="flex flex-1 p-6 gap-6 overflow-hidden min-h-0">
         {/* Left Side: Host List */}
         <div className="w-80 flex flex-col gap-4">
           <Card className="flex-1 overflow-hidden flex flex-col shadow-sm border-none bg-white/50 backdrop-blur-sm">
@@ -240,7 +262,7 @@ export default function SchedulingView() {
                         </div>
                       </td>
                       {SHIFTS.map(shift => {
-                        const key = `${day}-${shift.id}`;
+                        const key = `${day}-${shift.id}-${genderFilter}`;
                         const hostId = currentSession.schedule[key];
                         const host = rankedHosts.find((h: any) => h.id === hostId);
                         
@@ -322,6 +344,7 @@ export default function SchedulingView() {
           </div>
         </div>
       </div>
+      </div>
       
       {/* Swap Confirmation Modal */}
       {pendingSwap && (
@@ -374,7 +397,7 @@ export default function SchedulingView() {
             </h3>
             <p className="text-sm text-slate-600 mb-6">
               Bạn có chắc chắn muốn thêm Host <span className="font-bold text-primary">{rankedHosts.find((h: any) => h.id === pendingAssign.hostId)?.name}</span> vào ca này?
-              {currentSession.schedule[`${pendingAssign.day}-${pendingAssign.shiftId}`] && (
+              {currentSession.schedule[`${pendingAssign.day}-${pendingAssign.shiftId}-${genderFilter}`] && (
                 <span className="block mt-2 text-red-500 font-medium">Lưu ý: Host cũ đang xếp ở ô này sẽ bị thay thế!</span>
               )}
             </p>

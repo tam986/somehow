@@ -9,8 +9,8 @@ interface AppContextType {
   state: AppState;
   addSession: (name: string, month: number, year: number) => void;
   updateSessionMeta: (sessionId: string, capital: number, totalSessions: number) => void;
-  updateSchedule: (sessionId: string, day: number, shift: number, hostId: string | null) => void;
-  updateFinancials: (sessionId: string, day: number, shift: number, field: keyof FinancialRecord, value: number) => void;
+  updateSchedule: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', hostId: string | null) => void;
+  updateFinancials: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => void;
   setCurrentSession: (id: string) => void;
   setLockedHosts: (sessionId: string, hostIds: string[]) => void;
   resetAll: () => void;
@@ -28,18 +28,56 @@ const STORAGE_KEY = 'host-women-app-state';
 // Helper: Firebase silently deletes empty objects. We must restore them.
 const sanitizeState = (rawState: any): AppState => {
   if (!rawState) return rawState;
-  return {
-    ...rawState,
-    hosts: rawState.hosts || [],
-    sessions: (rawState.sessions || []).map((s: any) => ({
+  
+  const sessions = (rawState.sessions || []).map((s: any) => {
+    const rawSchedule = s.schedule || {};
+    const rawFinancials = s.financials || {};
+    
+    // Migrate old keys without gender suffix
+    const migratedSchedule: any = {};
+    const migratedFinancials: any = {};
+    
+    Object.keys(rawSchedule).forEach(key => {
+      // old format was "day-shift" (e.g. "1-2"). New format: "1-2-female" or "1-2-male"
+      if (key.split('-').length === 2 && rawSchedule[key]) {
+         const hostId = rawSchedule[key];
+         const host = (rawState.hosts || []).find((h: any) => h.id === hostId);
+         const gender = host?.gender === 'male' ? 'male' : 'female';
+         migratedSchedule[`${key}-${gender}`] = hostId;
+         if (rawFinancials[key]) {
+             migratedFinancials[`${key}-${gender}`] = rawFinancials[key];
+         }
+      } else {
+         migratedSchedule[key] = rawSchedule[key];
+      }
+    });
+
+    Object.keys(rawFinancials).forEach(key => {
+      if (key.split('-').length === 2 && !migratedFinancials[`${key}-female`] && !migratedFinancials[`${key}-male`]) {
+         const hostId = rawSchedule[key];
+         const host = (rawState.hosts || []).find((h: any) => h.id === hostId);
+         const gender = host?.gender === 'male' ? 'male' : 'female';
+         migratedFinancials[`${key}-${gender}`] = rawFinancials[key];
+      } else if (key.split('-').length > 2) {
+         migratedFinancials[key] = rawFinancials[key];
+      }
+    });
+
+    return {
       ...s,
-      schedule: s.schedule || {},
-      financials: s.financials || {},
+      schedule: migratedSchedule,
+      financials: migratedFinancials,
       kolFinancials: s.kolFinancials || [],
       lockedHosts: s.lockedHosts || [],
       capital: s.capital || 15480000,
       totalSessions: s.totalSessions || 129
-    }))
+    };
+  });
+
+  return {
+    ...rawState,
+    hosts: rawState.hosts || [],
+    sessions
   };
 };
 
@@ -126,11 +164,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const updateSchedule = (sessionId: string, day: number, shift: number, hostId: string | null) => {
+  const updateSchedule = (sessionId: string, day: number, shift: number, gender: 'female' | 'male', hostId: string | null) => {
     setState(prev => {
       const sessions = prev.sessions.map(s => {
         if (s.id !== sessionId) return s;
-        const key = `${day}-${shift}`;
+        const key = `${day}-${shift}-${gender}`;
         return {
           ...s,
           schedule: { ...s.schedule, [key]: hostId }
@@ -140,11 +178,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const updateFinancials = (sessionId: string, day: number, shift: number, field: keyof FinancialRecord, value: number) => {
+  const updateFinancials = (sessionId: string, day: number, shift: number, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => {
     setState(prev => {
       const sessions = prev.sessions.map(s => {
         if (s.id !== sessionId) return s;
-        const key = `${day}-${shift}`;
+        const key = `${day}-${shift}-${gender}`;
         const record = s.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
         return {
           ...s,

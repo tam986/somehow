@@ -24,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'schedule', label: 'Xếp Lịch', icon: Calendar },
     { id: 'data', label: 'Nhập Data', icon: Database },
-    { id: 'kol', label: 'Nhập Liệu KOL', icon: Star },
+    { id: 'kol', label: 'ĐOÀN HUỆ VUI', icon: Star },
     { id: 'hosts', label: 'Quản Lý Host', icon: Users },
     { id: 'analysis', label: 'Tổng Hợp', icon: LayoutDashboard },
     { id: 'config', label: 'Cấu Hình', icon: Settings },

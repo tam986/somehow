@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '@/lib/store';
 import { SHIFTS, DAY_NAMES, OPERATIONAL_COST } from '@/lib/constants';
 import { formatCurrency, parseCurrency, calculateSessionFinance } from '@/lib/finance';
@@ -14,13 +14,17 @@ export default function DataEntryView() {
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const hosts = state.hosts;
 
+  const [genderFilter, setGenderFilter] = useState<'female' | 'male'>('female');
+
   const capital = currentSession?.capital ?? 15480000;
   const totalSessions = currentSession?.totalSessions ?? 129;
 
   const totalShiftsAssigned = useMemo(() => {
     if (!currentSession) return 0;
-    return Object.values(currentSession.schedule).filter(id => id !== null).length;
-  }, [currentSession]);
+    return Object.entries(currentSession.schedule).filter(([key, id]) => {
+      return id !== null && key.endsWith(`-${genderFilter}`);
+    }).length;
+  }, [currentSession, genderFilter]);
 
   const perShiftCostAllocation = useMemo(() => {
     return totalSessions > 0 ? capital / totalSessions : 0;
@@ -33,6 +37,10 @@ export default function DataEntryView() {
     let totalCompanyLN = 0;
 
     Object.entries(currentSession.financials).forEach(([key, record]) => {
+      if (!key.endsWith(`-${genderFilter}`)) return;
+      const hostId = currentSession.schedule[key];
+      if (!hostId) return;
+
       const res = calculateSessionFinance(record, perShiftCostAllocation);
       totalGMV += record.gmv;
       totalTikTokLN += res.tiktokProfit;
@@ -40,17 +48,36 @@ export default function DataEntryView() {
     });
 
     return { totalGMV, totalTikTokLN, totalCompanyLN };
-  }, [currentSession, perShiftCostAllocation]);
+  }, [currentSession, perShiftCostAllocation, genderFilter]);
 
   if (!currentSession) return null;
 
   const handleInputChange = (day: number, shift: number, field: any, value: string) => {
     const numValue = parseCurrency(value);
-    updateFinancials(currentSession.id, day, shift, field, numValue);
+    updateFinancials(currentSession.id, day, shift, genderFilter, field, numValue);
   };
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex bg-slate-100 p-1 rounded-lg w-max shadow-sm border">
+          <button 
+            className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'female' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
+            onClick={() => setGenderFilter('female')}
+          >
+            <Users size={16} />
+            WOMEN
+          </button>
+          <button 
+            className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'male' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
+            onClick={() => setGenderFilter('male')}
+          >
+            <Users size={16} />
+            MEN
+          </button>
+        </div>
+      </div>
+
       {/* Session Settings */}
       <Card className="border shadow-sm bg-white">
         <CardContent className="p-4 flex flex-wrap gap-8 items-center">
@@ -127,7 +154,7 @@ export default function DataEntryView() {
               {Array.from({ length: currentSession.days }, (_, i) => i + 1).map(day => (
                 <React.Fragment key={day}>
                   {SHIFTS.map((shift, sIdx) => {
-                    const key = `${day}-${shift.id}`;
+                    const key = `${day}-${shift.id}-${genderFilter}`;
                     const hostId = currentSession.schedule[key];
                     if (!hostId) return null; // Show only assigned shifts like original
 
