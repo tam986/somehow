@@ -16,8 +16,13 @@ export default function DataEntryView() {
 
   const [genderFilter, setGenderFilter] = useState<'female' | 'male'>('female');
 
-  const capital = currentSession?.capital ?? 15480000;
-  const totalSessions = currentSession?.totalSessions ?? 129;
+  const capital = genderFilter === 'female' 
+    ? (currentSession?.capitalFemale ?? currentSession?.capital ?? 15480000)
+    : (currentSession?.capitalMale ?? currentSession?.capital ?? 15480000);
+    
+  const totalSessions = genderFilter === 'female'
+    ? (currentSession?.totalSessionsFemale ?? currentSession?.totalSessions ?? 129)
+    : (currentSession?.totalSessionsMale ?? currentSession?.totalSessions ?? 129);
 
   const totalShiftsAssigned = useMemo(() => {
     if (!currentSession) return 0;
@@ -87,7 +92,7 @@ export default function DataEntryView() {
               type="text" 
               className="w-40 h-8 text-right font-bold text-blue-700 bg-blue-50/50" 
               value={formatCurrency(capital)}
-              onChange={(e) => updateSessionMeta(currentSession.id, parseCurrency(e.target.value), totalSessions)}
+              onChange={(e) => updateSessionMeta(currentSession.id, parseCurrency(e.target.value), totalSessions, genderFilter)}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -96,14 +101,14 @@ export default function DataEntryView() {
               type="number" 
               className="w-32 h-8 text-right font-bold text-orange-700 bg-orange-50/50" 
               value={totalSessions || ''}
-              onChange={(e) => updateSessionMeta(currentSession.id, capital, parseInt(e.target.value) || 0)}
+              onChange={(e) => updateSessionMeta(currentSession.id, capital, parseInt(e.target.value) || 0, genderFilter)}
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Summary Header */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard 
           title="Tổng GMV" 
           value={formatCurrency(summary?.totalGMV || 0)} 
@@ -133,11 +138,11 @@ export default function DataEntryView() {
 
       <Card className="border-none shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs">
+          <table className="w-full border-collapse text-xs min-w-[1200px]">
             <thead>
               <tr className="bg-slate-900 text-white uppercase tracking-wider">
-                <th className="p-3 text-left w-32 sticky left-0 z-20 bg-slate-900">Ngày / Ca</th>
-                <th className="p-3 text-left w-24">Host</th>
+                <th className="p-3 text-left w-24 lg:w-32 sticky left-0 z-20 bg-slate-900">Ngày / Ca</th>
+                <th className="p-3 text-left w-20 lg:w-24">Host</th>
                 <th className="p-3 text-center bg-blue-900/30">GMV</th>
                 <th className="p-3 text-center bg-blue-900/30">ADS</th>
                 <th className="p-3 text-center bg-blue-900/30">CAST</th>

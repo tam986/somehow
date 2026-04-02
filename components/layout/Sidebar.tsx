@@ -9,9 +9,11 @@ import { useApp } from "@/lib/store";
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onClose }) => {
   const { state, addSession, resetAll, setCurrentSession } = useApp();
   const [showAddModal, setShowAddModal] = useState(false);
   const currentMonth = new Date().getMonth() + 1;
@@ -37,18 +39,40 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   };
 
   return (
-    <div className="w-64 border-r bg-card flex flex-col h-full">
-      <div className="p-6 border-b flex items-center gap-2">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold italic">S</div>
-        <span className="font-bold text-xl tracking-tight">SOMEHOW</span>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 border-r bg-card flex flex-col h-full transition-transform duration-300 lg:relative lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold italic">S</div>
+            <span className="font-bold text-xl tracking-tight uppercase">SOMEHOW</span>
+          </div>
+          {onClose && (
+            <button onClick={onClose} className="lg:hidden p-1 hover:bg-accent rounded-md text-slate-500">
+              <X size={20} />
+            </button>
+          )}
+        </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200">
         <p className="text-xs font-semibold text-muted-foreground uppercase px-2 py-1 mt-2">Menu</p>
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => setActiveTab(item.id)}
+            onClick={() => {
+              setActiveTab(item.id);
+              if (onClose) onClose();
+            }}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all",
               activeTab === item.id 
@@ -157,7 +181,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

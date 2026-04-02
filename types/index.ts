@@ -26,6 +26,11 @@ export interface FinancialRecord {
   cast: number;
   tro: number;
   ot: number;
+  fees?: number;
+  grossProfit?: number;
+  platformProfit?: number;
+  tiktokProfit?: number;
+  companyProfit?: number;
 }
 
 export interface KolFinancialRecord {
@@ -48,12 +53,20 @@ export interface MonthSession {
   month: number; // 1-12
   year: number;
   days: number;
-  capital: number;
-  totalSessions: number;
+  capital: number; // Mặc định/Tương thích cũ
+  capitalFemale: number;
+  capitalMale: number;
+  totalSessions: number; // Mặc định/Tương thích cũ
+  totalSessionsFemale: number;
+  totalSessionsMale: number;
   schedule: Schedule;
   financials: { [key: string]: FinancialRecord }; // "day-shiftIndex" -> FinancialRecord
   kolFinancials: KolFinancialRecord[];
   lockedHosts: string[]; // array of hostIds
+  gmvMaxWomen?: FinancialRecord;
+  gmvMaxMen?: FinancialRecord;
+  kolCompanyProfitWomen?: number;
+  kolCompanyProfitMen?: number;
 }
 
 export interface AppState {

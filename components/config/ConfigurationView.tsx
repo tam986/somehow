@@ -27,12 +27,12 @@ export default function ConfigurationView() {
 
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-black tracking-tight">CÀI ĐẶT HỆ THỐNG</h1>
-        <Button variant="destructive" size="sm" onClick={resetAll}>Reset Toàn Bộ Ứng Dụng</Button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl lg:text-3xl font-black tracking-tight">CÀI ĐẶT</h1>
+        <Button variant="destructive" size="sm" className="w-full sm:w-auto" onClick={resetAll}>Reset Ứng Dụng</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Session Management */}
         <Card className="shadow-subtle border-none">
           <CardHeader className="border-b">

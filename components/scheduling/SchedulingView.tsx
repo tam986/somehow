@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store';
 import { SHIFTS, DAY_NAMES } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
-import { ShieldCheck, AlertCircle, Trash2, User, Users } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Trash2, User, Users, X } from 'lucide-react';
 import { Host } from '@/types';
 import { computeRankedHosts } from '@/lib/finance';
 
@@ -139,30 +139,47 @@ export default function SchedulingView() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-6 pt-4">
+      <div className="flex flex-col lg:h-full lg:overflow-hidden">
+        <div className="px-4 lg:px-6 pt-4 flex flex-col sm:flex-row justify-between gap-4">
           <div className="flex bg-slate-100 p-1 rounded-lg w-max shadow-sm border">
             <button 
-              className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'female' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
+              className={cn("px-4 lg:px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'female' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
               onClick={() => setGenderFilter('female')}
             >
               <Users size={16} />
-              WOMEN
+              <span className="hidden sm:inline">WOMEN</span>
+              <span className="sm:hidden text-xs">NỮ</span>
             </button>
             <button 
-              className={cn("px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'male' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
+              className={cn("px-4 lg:px-6 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2", genderFilter === 'male' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
               onClick={() => setGenderFilter('male')}
             >
               <Users size={16} />
-              MEN
+              <span className="hidden sm:inline">MEN</span>
+              <span className="sm:hidden text-xs">NAM</span>
             </button>
           </div>
+          
+          {selectedHostId && (
+            <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-[10px] lg:text-xs font-bold text-primary italic uppercase">
+                Đang chọn: {rankedHosts.find(h => h.id === selectedHostId)?.name}
+              </span>
+              <button onClick={() => setSelectedHostId(null)} className="text-primary hover:bg-primary/20 p-0.5 rounded ml-1">
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
 
-      <div className="flex flex-1 p-6 gap-6 overflow-hidden min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 p-4 lg:p-6 gap-4 lg:gap-6 lg:overflow-hidden min-h-0">
         {/* Left Side: Host List */}
-        <div className="w-80 flex flex-col gap-4">
-          <Card className="flex-1 overflow-hidden flex flex-col shadow-sm border-none bg-white/50 backdrop-blur-sm">
+        <div className={cn(
+          "w-full lg:w-80 flex flex-col gap-4 lg:overflow-hidden shrink-0",
+          selectedHostId ? "hidden lg:flex" : "flex"
+        )}>
+          <Card className="lg:flex-1 lg:overflow-hidden flex flex-col shadow-sm border-none bg-white/50 backdrop-blur-sm min-h-[400px] lg:min-h-0">
             <CardHeader className="py-4 border-b">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <User size={18} className="text-primary" />
@@ -229,22 +246,22 @@ export default function SchedulingView() {
         </div>
 
         {/* Right Side: Grid Table */}
-        <div className="flex-1 flex flex-col bg-card rounded-xl border shadow-subtle overflow-hidden">
-          <div className="flex-1 overflow-auto bg-slate-100/30">
+        <div className="flex-1 flex flex-col bg-card rounded-xl border shadow-subtle lg:overflow-hidden">
+          <div className="flex-1 overflow-auto bg-slate-100/30 min-h-[500px] lg:min-h-0">
             <table className="w-full border-collapse table-fixed min-w-[1000px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-900 text-white">
-                  <th className="w-32 p-3 text-xs font-bold border-r border-slate-700">NGÀY</th>
+                  <th className="w-16 lg:w-32 p-3 text-xs font-bold border-r border-slate-700 sticky left-0 z-[11] bg-slate-900">NGÀY</th>
                   {SHIFTS.map(shift => (
-                    <th key={shift.id} className="p-3 text-xs font-bold border-r border-slate-700 last:border-0 relative">
+                    <th key={shift.id} className="p-3 text-[10px] lg:text-xs font-bold border-r border-slate-700 last:border-0 relative min-w-[120px] lg:min-w-[180px]">
                       <div className="flex flex-col items-center">
                         <span className="flex items-center gap-1">
                           {shift.name} 
-                          {shift.isBest && <span className="text-yellow-400 text-lg">★</span>}
+                          {shift.isBest && <span className="text-yellow-400 text-sm lg:text-lg">★</span>}
                         </span>
-                        <span className="text-[10px] opacity-70 font-normal uppercase">{shift.time}</span>
+                        <span className="text-[8px] lg:text-[10px] opacity-70 font-normal uppercase">{shift.time}</span>
                       </div>
-                      {shift.isNight && <div className="absolute top-0 right-0 p-1 opacity-40">🌙</div>}
+                      {shift.isNight && <div className="absolute top-0 right-0 p-1 opacity-40 text-[10px]">🌙</div>}
                     </th>
                    ))}
                 </tr>
@@ -255,10 +272,9 @@ export default function SchedulingView() {
                   return (
                     <tr key={day} className={cn("border-b", info.isWeekend ? "bg-slate-50" : "bg-white")}>
                       <td className="p-2 border-r text-center align-middle sticky left-0 z-[5] bg-inherit border-b">
-                        <div className={cn("flex flex-col items-center justify-center p-1 rounded-lg", info.isWeekend ? "text-red-600" : "text-slate-700")}>
-                          <span className="text-[10px] font-black uppercase tracking-tighter">{info.name}</span>
-                          <span className="text-lg font-bold tabular-nums leading-none">{day}</span>
-                          <span className="text-[8px] opacity-60 font-bold">{info.date}</span>
+                        <div className={cn("flex flex-col items-center justify-center p-0.5 lg:p-1 rounded-lg", info.isWeekend ? "text-red-600" : "text-slate-700")}>
+                          <span className="text-[8px] lg:text-[10px] font-black uppercase tracking-tighter">{info.name}</span>
+                          <span className="text-sm lg:text-lg font-bold tabular-nums leading-none">{day}</span>
                         </div>
                       </td>
                       {SHIFTS.map(shift => {
@@ -267,7 +283,7 @@ export default function SchedulingView() {
                         const host = rankedHosts.find((h: any) => h.id === hostId);
                         
                         return (
-                          <td key={shift.id} className="p-1 border-r last:border-0 align-top h-24">
+                          <td key={shift.id} className="p-1 border-r last:border-0 align-top h-20 lg:h-24">
                             <Droppable droppableId={`cell-${day}-${shift.id}`}>
                               {(provided, snapshot) => (
                                   <div

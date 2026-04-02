@@ -2,15 +2,17 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
-import { calculateSessionFinance, calculateGenderTotalAndProfits, formatCurrency } from '@/lib/finance';
+import { calculateSessionFinance, calculateGenderTotalAndProfits, formatCurrency, calculateKolFinance, parseCurrency } from '@/lib/finance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Download, TrendingUp, Award, Target, Calendar, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { FinancialRecord } from '@/types';
 
 export default function DashboardView() {
-  const { state } = useApp();
+  const { state, updateGmvMax, updateKolCompanyProfit } = useApp();
   const hosts = state.hosts;
   const [dashboardSessionId, setDashboardSessionId] = useState<string | 'all'>(state.currentSessionId || 'all');
   const [viewMode, setViewMode] = useState<'general' | 'gender'>('general');
@@ -41,10 +43,17 @@ export default function DashboardView() {
     });
 
     sessionsToAnalyze.forEach(session => {
-      const perShiftCost = session.totalSessions > 0 ? (session.capital || 15480000) / session.totalSessions : 0;
-      
       Object.entries(session.schedule).forEach(([key, hostId]) => {
         if (!hostId || !stats[hostId]) return;
+
+        const isMale = key.endsWith('-male');
+        const capital = isMale 
+          ? (session.capitalMale ?? session.capital ?? 15480000) 
+          : (session.capitalFemale ?? session.capital ?? 15480000);
+        const totalSessions = isMale
+          ? (session.totalSessionsMale ?? session.totalSessions ?? 129)
+          : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
+        const perShiftCost = totalSessions > 0 ? capital / totalSessions : 0;
 
         const record = session.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
         const res = calculateSessionFinance(record, perShiftCost);
@@ -94,9 +103,13 @@ export default function DashboardView() {
       ? state.sessions 
       : state.sessions.filter(s => s.id === dashboardSessionId);
 
-    const womenRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0 };
-    const menRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0 };
-    const kolRaw = { gmv: 0, ads: 0, cast: 0, tro: 0 }; // kol gets calculated
+    const womenRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+    const menRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+    const kolRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, lnCty: 0 }; 
+    
+    // gmvMax values (only if single session is selected)
+    let womenGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+    let menGmvMaxRaw = { gmv: 0, ads: 0, cast: 0, tro: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
 
     sessionsToAnalyze.forEach(session => {
       Object.entries(session.schedule).forEach(([key, hostId]) => {
@@ -117,23 +130,62 @@ export default function DashboardView() {
         target.grossProfit += res.grossProfit;
         target.platformProfit += res.platformProfit;
         target.tiktokProfit += res.tiktokProfit;
+        target.lnCty += res.companyProfit;
       });
 
       // kol
       (session.kolFinancials || []).forEach(record => {
+          const kolRes = calculateKolFinance(record);
           kolRaw.gmv += record.gmv;
           kolRaw.ads += record.ads;
-          kolRaw.cast += record.cast;
+          kolRaw.cast += kolRes.cast;
           kolRaw.tro += record.tro;
+          kolRaw.lnCty += kolRes.companyProfit;
       });
+
+      // gmvMax accumulate (if 'all', otherwise we take from current session below)
+      if (dashboardSessionId === 'all') {
+        const wMax = session.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        womenGmvMaxRaw.gmv += wMax.gmv;
+        womenGmvMaxRaw.ads += wMax.ads;
+        womenGmvMaxRaw.cast += wMax.cast;
+        womenGmvMaxRaw.tro += wMax.tro;
+        // Don't accumulate calculated values for GMV MAX row as per user request
+
+        const mMax = session.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        menGmvMaxRaw.gmv += mMax.gmv;
+        menGmvMaxRaw.ads += mMax.ads;
+        menGmvMaxRaw.cast += mMax.cast;
+        menGmvMaxRaw.tro += mMax.tro;
+      }
     });
 
-    const calcObjForKol = (raw: any) => {
+    // If single session, get fixed values for GMV MAX from that session
+    if (dashboardSessionId !== 'all') {
+      const currentSession = sessionsToAnalyze[0];
+      const wMax = currentSession?.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+      womenGmvMaxRaw = { ...wMax, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+
+      const mMax = currentSession?.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+      menGmvMaxRaw = { ...mMax, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, lnCty: 0 };
+    }
+
+    const calcObjForKol = (raw: any, gender: 'female' | 'male') => {
+      const currentSession = sessionsToAnalyze[0];
+      const manualProfit = currentSession ? (gender === 'female' ? currentSession.kolCompanyProfitWomen : currentSession.kolCompanyProfitMen) : 0;
       const p = calculateGenderTotalAndProfits(raw.gmv, raw.ads, raw.cast, raw.tro);
-      return { ...raw, ...p };
+      // If single session, use manual override. If 'all', sum them (handled by the loop above + manual sum logic if needed)
+      // Actually if 'all', we should accumulated manual profits too.
+      let totalManualProfit = manualProfit || 0;
+      if (dashboardSessionId === 'all') {
+         totalManualProfit = sessionsToAnalyze.reduce((sum, s) => sum + (gender === 'female' ? (s.kolCompanyProfitWomen || 0) : (s.kolCompanyProfitMen || 0)), 0);
+      }
+
+      return { ...raw, ...p, lnCty: totalManualProfit };
     };
 
-    const kolComputed = calcObjForKol(kolRaw);
+    const kolComputed = calcObjForKol(kolRaw, 'female');
+    const menKolComputed = calcObjForKol({ gmv: 0, ads: 0, cast: 0, tro: 0 }, 'male');
 
     const sumRows = (row1: any, row2: any) => ({
       gmv: row1.gmv + row2.gmv,
@@ -144,23 +196,24 @@ export default function DashboardView() {
       grossProfit: row1.grossProfit + row2.grossProfit,
       platformProfit: row1.platformProfit + row2.platformProfit,
       tiktokProfit: row1.tiktokProfit + row2.tiktokProfit,
+      lnCty: (row1.lnCty || 0) + (row2.lnCty || 0)
     });
     
-    // We leave GMV MAX empty visually, its values are just 0
-    const emptyRow = { gmv: 0, cast: 0, tro: 0, ads: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0 };
-
-    const womenTotal = sumRows(womenRaw, kolComputed);
-    const menTotal = sumRows(menRaw, emptyRow); // or just menRaw
+    const womenTotal = sumRows(sumRows(womenRaw, kolComputed), womenGmvMaxRaw);
+    const menTotal = sumRows(sumRows(menRaw, menKolComputed), menGmvMaxRaw);
+    
+    const totalAll = sumRows(womenTotal, menTotal);
 
     return {
       womenStream: womenRaw,
       womenKol: kolComputed,
-      womenEmpty: emptyRow,
-      womenTotal: womenTotal, 
+      womenGmvMax: womenGmvMaxRaw,
+      womenTotal,
       menStream: menRaw,
-      menEmpty: emptyRow,
-      menTotal: menTotal,
-      totalAll: sumRows(womenTotal, menTotal)
+      menKol: menKolComputed,
+      menGmvMax: menGmvMaxRaw,
+      menTotal,
+      totalAll
     };
   }, [dashboardSessionId, state.sessions, hosts]);
 
@@ -191,22 +244,52 @@ export default function DashboardView() {
     XLSX.writeFile(wb, `Bao_Cao_${sessionName}.xlsx`);
   };
 
-  const renderGenderRow = (title: string, data: any, isTotal: boolean = false, isGmvMax: boolean = false) => {
+  const renderGenderRow = (title: string, data: any, options: { 
+    isTotal?: boolean, 
+    isGmvMax?: boolean, 
+    isKol?: boolean,
+    gender?: 'female' | 'male' 
+  } = {}) => {
+    const { isTotal = false, isGmvMax = false, isKol = false, gender } = options;
+    const isEditable = (isGmvMax || isKol) && dashboardSessionId !== 'all' && gender;
+
+    const renderEditableCell = (field: keyof FinancialRecord, value: number, colorClass: string = "", alwaysEditable: boolean = false) => {
+      const canEdit = alwaysEditable || (isGmvMax && isEditable);
+      if (!canEdit) return <span className={colorClass}>{formatCurrency(value)}</span>;
+      return (
+        <Input 
+          className={cn("h-7 w-full text-right bg-white/10 border-white/20 text-white focus:bg-white/20 p-1 text-[11px]", colorClass)}
+          value={value === 0 ? '' : formatCurrency(value)}
+          onChange={(e) => updateGmvMax(dashboardSessionId as string, gender as any, field, parseCurrency(e.target.value))}
+        />
+      );
+    };
+
     return (
       <tr className={cn(isTotal ? "bg-[#0f1b29] font-bold border-t border-[#1d4ed8]" : "")}>
         <td className="p-3 font-semibold w-40">{title}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.gmv)}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.cast)}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.tro)}</td>
-        <td className="p-3 text-right text-red-500">{isGmvMax ? '' : formatCurrency(data.ads)}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.fees)}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.grossProfit)}</td>
-        <td className="p-3 text-right">{isGmvMax ? '' : formatCurrency(data.platformProfit)}</td>
-        <td className={cn("p-3 text-right tabular-nums", data.tiktokProfit < 0 ? "text-red-500" : "text-emerald-600")}>
-          {isGmvMax ? '' : formatCurrency(data.tiktokProfit)}
+        <td className="p-2 text-right">{renderEditableCell('gmv', data.gmv)}</td>
+        <td className="p-2 text-right">{renderEditableCell('cast', data.cast)}</td>
+        <td className="p-2 text-right">{renderEditableCell('tro', data.tro)}</td>
+        <td className="p-2 text-right">{renderEditableCell('ads', data.ads, "text-red-400")}</td>
+        <td className="p-2 text-right">{renderEditableCell('fees', data.fees)}</td>
+        <td className="p-2 text-right">{renderEditableCell('grossProfit', data.grossProfit)}</td>
+        <td className="p-2 text-right">{renderEditableCell('platformProfit', data.platformProfit)}</td>
+        <td className="p-2 text-right tabular-nums">
+          {renderEditableCell('tiktokProfit', data.tiktokProfit, data.tiktokProfit < 0 ? "text-red-500" : "text-emerald-500")}
         </td>
-        <td className="p-3 text-right">
-          {/* Lợi Nhuận Công Ty đang để trống theo yêu cầu của user */}
+        <td className="p-2 text-right font-bold text-blue-400">
+          {isKol && isEditable ? (
+             <Input 
+               className="h-7 w-full text-right bg-white/10 border-white/20 text-blue-400 focus:bg-white/20 p-1 text-[11px] font-bold"
+               value={data.lnCty === 0 ? '' : formatCurrency(data.lnCty)}
+               onChange={(e) => updateKolCompanyProfit(dashboardSessionId as string, gender as any, parseCurrency(e.target.value))}
+             />
+          ) : (
+             isGmvMax && isEditable ? 
+             renderEditableCell('companyProfit', data.lnCty) : 
+             formatCurrency(data.lnCty || 0)
+          )}
         </td>
       </tr>
     );
@@ -214,37 +297,37 @@ export default function DashboardView() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <h1 className="text-xl lg:text-2xl font-black tracking-tight flex items-center gap-2">
           <Award className="text-yellow-500" />
-          BẢNG TỔNG HỢP HIỆU SUẤT
+          HIỆU SUẤT
         </h1>
         
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-lg">
+        <div className="flex flex-wrap items-center gap-2 lg:gap-3 w-full lg:w-auto">
+          <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
             <button 
-              className={cn("px-4 py-1.5 text-sm font-bold rounded-md transition-all", viewMode === 'general' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
+              className={cn("flex-1 sm:flex-none px-3 lg:px-4 py-1.5 text-[10px] lg:text-sm font-bold rounded-md transition-all whitespace-nowrap", viewMode === 'general' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-800")}
               onClick={() => setViewMode('general')}
             >
               CÁ NHÂN
             </button>
             <button 
-              className={cn("px-4 py-1.5 text-sm font-bold rounded-md transition-all", viewMode === 'gender' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
+              className={cn("flex-1 sm:flex-none px-3 lg:px-4 py-1.5 text-[10px] lg:text-sm font-bold rounded-md transition-all whitespace-nowrap", viewMode === 'gender' ? "bg-white shadow-sm text-pink-600" : "text-slate-500 hover:text-slate-800")}
               onClick={() => setViewMode('gender')}
             >
-              MEN + WOMEN
+              NAM + NỮ
             </button>
           </div>
 
-          <div className="relative flex items-center bg-white border rounded-lg shadow-sm">
+          <div className="relative flex items-center bg-white border rounded-lg shadow-sm flex-1 sm:flex-none min-w-[140px]">
             <Calendar size={14} className="ml-3 text-slate-400 absolute left-0" />
             <select 
-              className="appearance-none bg-transparent h-9 pl-9 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary rounded-lg"
+              className="appearance-none bg-transparent w-full h-9 pl-9 pr-8 text-[11px] lg:text-sm font-bold text-slate-700 outline-none rounded-lg"
               value={dashboardSessionId}
               onChange={(e) => setDashboardSessionId(e.target.value)}
             >
-              <option value="all">Tất cả các tháng</option>
-              <optgroup label="Chọn Tháng / Năm">
+              <option value="all">Tất cả tháng</option>
+              <optgroup label="Chọn Tháng">
                 {sessionOptions.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -252,9 +335,9 @@ export default function DashboardView() {
             </select>
           </div>
           
-          <Button onClick={exportExcel} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-            <Download size={18} />
-            Xuất Báo Cáo
+          <Button onClick={exportExcel} size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto text-xs lg:text-sm h-9">
+            <Download size={16} />
+            <span className="sm:inline">Xuất Excel</span>
           </Button>
         </div>
       </div>
@@ -343,7 +426,7 @@ export default function DashboardView() {
               </CardTitle>
             </CardHeader>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-xs min-w-[900px]">
                 <thead className="bg-slate-100 text-slate-600">
                   <tr>
                     <th className="p-3 text-left w-10">#</th>
@@ -439,9 +522,9 @@ export default function DashboardView() {
                 </thead>
                 <tbody className="divide-y divide-[#3a3a3a]">
                   {renderGenderRow('LIVESTREAM', genderStats.womenStream)}
-                  {renderGenderRow('Chị Vui', genderStats.womenKol)}
-                  {renderGenderRow('GMV MAX', genderStats.womenEmpty, false, true)}
-                  {renderGenderRow('TỔNG', genderStats.womenTotal, true)}
+                  {renderGenderRow('Chị Vui', genderStats.womenKol, { isKol: true, gender: 'female' })}
+                  {renderGenderRow('GMV MAX', genderStats.womenGmvMax, { isGmvMax: true, gender: 'female' })}
+                  {renderGenderRow('TỔNG', genderStats.womenTotal, { isTotal: true })}
                 </tbody>
               </table>
             </div>
@@ -473,8 +556,9 @@ export default function DashboardView() {
                 </thead>
                 <tbody className="divide-y divide-[#3a3a3a]">
                   {renderGenderRow('LIVESTREAM', genderStats.menStream)}
-                  {renderGenderRow('GMV MAX', genderStats.menEmpty, false, true)}
-                  {renderGenderRow('TỔNG', genderStats.menTotal, true)}
+                  {renderGenderRow('KOL', genderStats.menKol, { isKol: true, gender: 'male' })}
+                  {renderGenderRow('GMV MAX', genderStats.menGmvMax, { isGmvMax: true, gender: 'male' })}
+                  {renderGenderRow('TỔNG', genderStats.menTotal, { isTotal: true })}
                 </tbody>
               </table>
             </div>
@@ -483,7 +567,7 @@ export default function DashboardView() {
            {/* TOTAL TABLE */}
            <Card className="shadow-subtle border-none overflow-hidden mt-6">
             <div className="overflow-x-auto bg-[#1b1b1b]">
-              <table className="w-full border-collapse text-xs text-white">
+              <table className="w-full border-collapse text-xs text-white min-w-[1000px]">
                 <thead className="bg-[#122c15] text-[#b3dbb8] border-b border-[#2d5232]">
                   <tr>
                     <th className="p-3 text-left">HẠNG MỤC</th>
@@ -511,7 +595,9 @@ export default function DashboardView() {
                     <td className={cn("p-3 text-right tabular-nums", genderStats.totalAll.tiktokProfit < 0 ? "text-red-500" : "text-emerald-500")}>
                       {formatCurrency(genderStats.totalAll.tiktokProfit)}
                     </td>
-                    <td className="p-3 text-right"></td>
+                    <td className="p-3 text-right text-blue-400">
+                      {formatCurrency(genderStats.totalAll.lnCty)}
+                    </td>
                   </tr>
                 </tbody>
               </table>

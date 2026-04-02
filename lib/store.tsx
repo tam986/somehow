@@ -8,7 +8,7 @@ import { syncStateToFirebase, loadStateFromFirebase, default as firebaseApp } fr
 interface AppContextType {
   state: AppState;
   addSession: (name: string, month: number, year: number) => void;
-  updateSessionMeta: (sessionId: string, capital: number, totalSessions: number) => void;
+  updateSessionMeta: (sessionId: string, capital: number, totalSessions: number, gender: 'female' | 'male') => void;
   updateSchedule: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', hostId: string | null) => void;
   updateFinancials: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => void;
   setCurrentSession: (id: string) => void;
@@ -19,6 +19,8 @@ interface AppContextType {
   deleteHost: (id: string) => void;
   saveKolFinancial: (sessionId: string, record: KolFinancialRecord) => void;
   deleteKolFinancial: (sessionId: string, recordId: string) => void;
+  updateGmvMax: (sessionId: string, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => void;
+  updateKolCompanyProfit: (sessionId: string, gender: 'female' | 'male', value: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,7 +72,15 @@ const sanitizeState = (rawState: any): AppState => {
       kolFinancials: s.kolFinancials || [],
       lockedHosts: s.lockedHosts || [],
       capital: s.capital || 15480000,
-      totalSessions: s.totalSessions || 129
+      capitalFemale: s.capitalFemale || s.capital || 15480000,
+      capitalMale: s.capitalMale || s.capital || 15480000,
+      totalSessions: s.totalSessions || 129,
+      totalSessionsFemale: s.totalSessionsFemale || s.totalSessions || 129,
+      totalSessionsMale: s.totalSessionsMale || s.totalSessions || 129,
+      gmvMaxWomen: s.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
+      gmvMaxMen: s.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
+      kolCompanyProfitWomen: s.kolCompanyProfitWomen || 0,
+      kolCompanyProfitMen: s.kolCompanyProfitMen || 0
     };
   });
 
@@ -149,12 +159,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       month,
       year,
       days: daysInMonth,
-      capital: 15480000, // Default to a standard previous value or 0
+      capital: 15480000,
+      capitalFemale: 15480000,
+      capitalMale: 15480000,
       totalSessions: 129,
+      totalSessionsFemale: 129,
+      totalSessionsMale: 129,
       schedule: {},
       financials: {},
       kolFinancials: [],
       lockedHosts: [],
+      gmvMaxWomen: { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
+      gmvMaxMen: { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
+      kolCompanyProfitWomen: 0,
+      kolCompanyProfitMen: 0
     };
 
     setState(prev => ({
@@ -210,10 +228,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const updateSessionMeta = (sessionId: string, capital: number, totalSessions: number) => {
+  const updateSessionMeta = (sessionId: string, capital: number, totalSessions: number, gender: 'female' | 'male') => {
     setState(prev => {
       const sessions = prev.sessions.map(s => {
-        if (s.id === sessionId) return { ...s, capital, totalSessions };
+        if (s.id === sessionId) {
+          if (gender === 'female') {
+            return { ...s, capitalFemale: capital, totalSessionsFemale: totalSessions };
+          } else {
+            return { ...s, capitalMale: capital, totalSessionsMale: totalSessions };
+          }
+        }
         return s;
       });
       return { ...prev, sessions };
@@ -259,8 +283,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteKolFinancial = (sessionId: string, recordId: string) => {
     setState(prev => {
       const sessions = prev.sessions.map(s => {
-        if (s.id !== sessionId) return s;
-        return { ...s, kolFinancials: s.kolFinancials.filter(k => k.id !== recordId) };
+        if (s.id === sessionId) {
+          const kolFinancials = (s.kolFinancials || []).filter(r => r.id !== recordId);
+          return { ...s, kolFinancials };
+        }
+        return s;
+      });
+      return { ...prev, sessions };
+    });
+  };
+
+  const updateGmvMax = (sessionId: string, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => {
+    setState(prev => {
+      const sessions = prev.sessions.map(s => {
+        if (s.id === sessionId) {
+          const target = gender === 'female' ? 'gmvMaxWomen' : 'gmvMaxMen';
+          const current = s[target] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+          return { ...s, [target]: { ...current, [field]: value } };
+        }
+        return s;
+      });
+      return { ...prev, sessions };
+    });
+  };
+
+  const updateKolCompanyProfit = (sessionId: string, gender: 'female' | 'male', value: number) => {
+    setState(prev => {
+      const sessions = prev.sessions.map(s => {
+        if (s.id === sessionId) {
+          const target = gender === 'female' ? 'kolCompanyProfitWomen' : 'kolCompanyProfitMen';
+          return { ...s, [target]: value };
+        }
+        return s;
       });
       return { ...prev, sessions };
     });
@@ -290,7 +344,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateHost,
       deleteHost,
       saveKolFinancial,
-      deleteKolFinancial
+      deleteKolFinancial,
+      updateGmvMax,
+      updateKolCompanyProfit
     }}>
       {children}
     </AppContext.Provider>

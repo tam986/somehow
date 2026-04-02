@@ -44,6 +44,16 @@ export const calculateGenderTotalAndProfits = (gmv: number, ads: number, cast: n
   };
 };
 
+export const calculateKolFinance = (record: { gmv: number, ads: number, tro: number, cast?: number }) => {
+  const cast = Math.round(record.gmv * 0.07);
+  const profits = calculateGenderTotalAndProfits(record.gmv, record.ads, cast, record.tro);
+  return {
+    ...profits,
+    cast,
+    companyProfit: profits.tiktokProfit
+  };
+};
+
 export const computeRankedHosts = (hosts: any[], sessions: any[], filterSessionId: string | 'all' = 'all') => {
   const incomes: Record<string, number> = {};
   hosts.forEach(h => incomes[h.id] = 0);
@@ -51,11 +61,21 @@ export const computeRankedHosts = (hosts: any[], sessions: any[], filterSessionI
   const targetSessions = filterSessionId === 'all' ? sessions : sessions.filter(s => s.id === filterSessionId);
 
   targetSessions.forEach(session => {
-    const costPerShift = session.totalSessions > 0 ? (session.capital || 15480000) / session.totalSessions : 0;
-
     Object.entries(session.financials).forEach(([key, record]: [string, any]) => {
       const hostId = session.schedule[key];
       if (hostId && incomes[hostId] !== undefined) {
+        // Determine gender from key (e.g., "1-1-female")
+        const isMale = key.endsWith('-male');
+
+        const capital = isMale
+          ? (session.capitalMale ?? session.capital ?? 15480000)
+          : (session.capitalFemale ?? session.capital ?? 15480000);
+
+        const totalSessions = isMale
+          ? (session.totalSessionsMale ?? session.totalSessions ?? 129)
+          : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
+
+        const costPerShift = totalSessions > 0 ? capital / totalSessions : 0;
         const res = calculateSessionFinance(record, costPerShift);
         incomes[hostId] += res.companyProfit;
       }

@@ -225,24 +225,22 @@ export default function HostManagerView() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl border shadow-sm gap-4">
         <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            Quản Lý Danh Sách Host
+          <h2 className="text-lg lg:text-xl font-bold flex items-center gap-2">
+            Quản Lý Host
           </h2>
-          <p className="text-sm text-slate-500">Thêm, sửa, xóa thông tin cá nhân và phân nhóm</p>
+          <p className="text-xs text-slate-500">Quản lý danh sách và phân nhóm</p>
         </div>
-        <div className="flex gap-3">
-          <Button onClick={handleAddNewClick} disabled={isAdding}>
-            <Plus size={16} className="mr-2" />
-            Thêm Host Mới
-          </Button>
-        </div>
+        <Button onClick={handleAddNewClick} disabled={isAdding} size="sm" className="w-full sm:w-auto h-9">
+          <Plus size={16} className="mr-2" />
+          Thêm Host
+        </Button>
       </div>
 
       <Card className="border-none shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-sm min-w-[800px]">
             <thead>
               <tr className="bg-slate-900 text-white uppercase text-xs tracking-wider">
                 <th className="p-3 text-left">Tên Host</th>
