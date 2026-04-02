@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AppState, Host, MonthSession, Schedule, FinancialRecord } from '@/types';
+import { AppState, Host, MonthSession, Schedule, FinancialRecord, KolFinancialRecord } from '@/types';
 import { INITIAL_HOSTS } from './constants';
 import { syncStateToFirebase, loadStateFromFirebase, default as firebaseApp } from './firebase';
 
@@ -17,6 +17,8 @@ interface AppContextType {
   addHost: (host: Omit<Host, 'id'>) => void;
   updateHost: (id: string, host: Partial<Host>) => void;
   deleteHost: (id: string) => void;
+  saveKolFinancial: (sessionId: string, record: KolFinancialRecord) => void;
+  deleteKolFinancial: (sessionId: string, recordId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ const sanitizeState = (rawState: any): AppState => {
       ...s,
       schedule: s.schedule || {},
       financials: s.financials || {},
+      kolFinancials: s.kolFinancials || [],
       lockedHosts: s.lockedHosts || [],
       capital: s.capital || 15480000,
       totalSessions: s.totalSessions || 129
@@ -112,6 +115,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalSessions: 129,
       schedule: {},
       financials: {},
+      kolFinancials: [],
       lockedHosts: [],
     };
 
@@ -199,6 +203,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  const saveKolFinancial = (sessionId: string, record: KolFinancialRecord) => {
+    setState(prev => {
+      const sessions = prev.sessions.map(s => {
+        if (s.id !== sessionId) return s;
+        const exists = s.kolFinancials.find(k => k.id === record.id);
+        if (exists) {
+          return { ...s, kolFinancials: s.kolFinancials.map(k => k.id === record.id ? record : k) };
+        } else {
+          return { ...s, kolFinancials: [...s.kolFinancials, record] };
+        }
+      });
+      return { ...prev, sessions };
+    });
+  };
+
+  const deleteKolFinancial = (sessionId: string, recordId: string) => {
+    setState(prev => {
+      const sessions = prev.sessions.map(s => {
+        if (s.id !== sessionId) return s;
+        return { ...s, kolFinancials: s.kolFinancials.filter(k => k.id !== recordId) };
+      });
+      return { ...prev, sessions };
+    });
+  };
+
   const resetAll = () => {
     if (confirm("Xóa toàn bộ dữ liệu?")) {
       setState({
@@ -221,7 +250,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetAll,
       addHost,
       updateHost,
-      deleteHost
+      deleteHost,
+      saveKolFinancial,
+      deleteKolFinancial
     }}>
       {children}
     </AppContext.Provider>

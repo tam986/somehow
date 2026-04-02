@@ -53,6 +53,7 @@ export default function HostManagerView() {
     setEditForm({
       name: '',
       phone: '',
+      gender: 'female',
       group: 'C',
       color: '#757575',
       bgColor: '#E0E0E0',
@@ -118,6 +119,20 @@ export default function HostManagerView() {
             />
           ) : (
             <span className="text-sm text-slate-600">{host.phone || "---"}</span>
+          )}
+        </td>
+        <td className="p-3">
+          {isEditing ? (
+             <select 
+              value={formState.gender || 'female'}
+              onChange={e => setEditForm({...formState, gender: e.target.value as 'male' | 'female'})}
+              className="h-8 rounded-md border border-input text-sm px-2 w-full"
+            >
+              <option value="female">Nữ</option>
+              <option value="male">Nam</option>
+            </select>
+          ) : (
+             <span className="text-sm font-semibold">{host.gender === 'male' ? 'Nam' : 'Nữ'}</span>
           )}
         </td>
         <td className="p-3">
@@ -232,6 +247,7 @@ export default function HostManagerView() {
               <tr className="bg-slate-900 text-white uppercase text-xs tracking-wider">
                 <th className="p-3 text-left">Tên Host</th>
                 <th className="p-3 text-left">Số Điện Thoại</th>
+                <th className="p-3 text-left">Giới Tính</th>
                 <th className="p-3 text-left">Nhóm</th>
                 <th className="p-3 text-left">Màu Sắc</th>
                 <th className="p-3 text-left">Lợi Nhuận Tiktok (Tháng)</th>
@@ -240,13 +256,13 @@ export default function HostManagerView() {
             </thead>
             <tbody className="bg-white">
               {isAdding && renderHostRow({
-                id: 'new', name: '', phone: '', group: 'C', color: '#757575', bgColor: '#E0E0E0'
+                id: 'new', name: '', phone: '', gender: 'female', group: 'C', color: '#757575', bgColor: '#E0E0E0'
               }, true)}
               
               {/* Group A */}
               {groupedHosts['A'].length > 0 && (
                 <tr className="bg-green-50/50">
-                  <td colSpan={6} className="p-2 text-xs font-bold text-green-800 uppercase tracking-widest pl-4 border-b">Nhóm A (Top Doanh Thu)</td>
+                  <td colSpan={7} className="p-2 text-xs font-bold text-green-800 uppercase tracking-widest pl-4 border-b">Nhóm A (Top Doanh Thu)</td>
                 </tr>
               )}
               {groupedHosts['A'].map(h => renderHostRow(h))}
@@ -254,7 +270,7 @@ export default function HostManagerView() {
               {/* Group B */}
               {groupedHosts['B'].length > 0 && (
                 <tr className="bg-blue-50/50">
-                  <td colSpan={6} className="p-2 text-xs font-bold text-blue-800 uppercase tracking-widest pl-4 border-b">Nhóm B</td>
+                  <td colSpan={7} className="p-2 text-xs font-bold text-blue-800 uppercase tracking-widest pl-4 border-b">Nhóm B</td>
                 </tr>
               )}
               {groupedHosts['B'].map(h => renderHostRow(h))}
@@ -262,7 +278,7 @@ export default function HostManagerView() {
               {/* Group C */}
               {groupedHosts['C'].length > 0 && (
                 <tr className="bg-slate-100">
-                  <td colSpan={6} className="p-2 text-xs font-bold text-slate-700 uppercase tracking-widest pl-4 border-b">Nhóm C</td>
+                  <td colSpan={7} className="p-2 text-xs font-bold text-slate-700 uppercase tracking-widest pl-4 border-b">Nhóm C</td>
                 </tr>
               )}
               {groupedHosts['C'].map(h => renderHostRow(h))}

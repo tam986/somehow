@@ -4,6 +4,7 @@ export interface Host {
   id: string;
   name: string;
   phone?: string;
+  gender?: 'male' | 'female';
   group: HostGroup;
   color: string;
   bgColor: string;
@@ -27,6 +28,16 @@ export interface FinancialRecord {
   ot: number;
 }
 
+export interface KolFinancialRecord {
+  id: string;
+  date: string;
+  time: string;
+  cast: number;
+  tro: number;
+  gmv: number;
+  ads: number;
+}
+
 export interface Schedule {
   [key: string]: string | null; // "day-shiftIndex" -> hostId
 }
@@ -41,6 +52,7 @@ export interface MonthSession {
   totalSessions: number;
   schedule: Schedule;
   financials: { [key: string]: FinancialRecord }; // "day-shiftIndex" -> FinancialRecord
+  kolFinancials: KolFinancialRecord[];
   lockedHosts: string[]; // array of hostIds
 }
 

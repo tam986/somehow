@@ -5,6 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
 import SchedulingView from '@/components/scheduling/SchedulingView';
 import DataEntryView from '@/components/data-entry/DataEntryView';
+import KolDataEntryView from '@/components/data-entry/KolDataEntryView';
 import DashboardView from '@/components/dashboard/DashboardView';
 import ConfigurationView from '@/components/config/ConfigurationView';
 import HostManagerView from '@/components/hosts/HostManagerView';
@@ -44,6 +45,7 @@ export default function Home() {
     switch (activeTab) {
       case 'schedule': return <SchedulingView />;
       case 'data': return <DataEntryView />;
+      case 'kol': return <KolDataEntryView />;
       case 'analysis': return <DashboardView />;
       case 'hosts': return <HostManagerView />;
       case 'config': return <ConfigurationView />;

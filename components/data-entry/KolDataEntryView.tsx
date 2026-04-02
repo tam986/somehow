@@ -1,0 +1,154 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useApp } from '@/lib/store';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { KolFinancialRecord } from '@/types';
+import { formatCurrency, parseCurrency, calculateGenderTotalAndProfits } from '@/lib/finance';
+
+export default function KolDataEntryView() {
+  const { state, saveKolFinancial, deleteKolFinancial } = useApp();
+  const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
+  
+  if (!currentSession) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        Vui lòng chọn hoặc tạo một tháng làm việc mới để xem dữ liệu.
+      </div>
+    );
+  }
+
+  const kolRecords = currentSession.kolFinancials || [];
+
+  return (
+    <div className="p-4 space-y-6 max-w-[1200px] mx-auto">
+      <div className="flex justify-between items-center bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2 text-amber-800">
+            <Star className="text-yellow-500" fill="currentColor" />
+            Nhập Liệu Dành Riêng Cho KOL (Đoàn Huệ Vui)
+          </h2>
+          <p className="text-sm text-amber-700/70">Quản lý số liệu riêng biệt cho KOL trong tháng này</p>
+        </div>
+        <div className="flex gap-3">
+          {/* No manual add button needed anymore */}
+        </div>
+      </div>
+
+      <Card className="border-none shadow-subtle overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-900 text-amber-50 uppercase text-xs tracking-wider">
+                <th className="p-2 text-left w-24">NGÀY</th>
+                <th className="p-2 text-left w-24">THỜI GIAN</th>
+                <th className="p-2 text-center">CAST HOST</th>
+                <th className="p-2 text-center">TRỢ LIVE</th>
+                <th className="p-2 text-center">GMV</th>
+                <th className="p-2 text-center">ADS</th>
+                <th className="p-2 text-right">PHÍ SÀN</th>
+                <th className="p-2 text-right">LN GỘP</th>
+                <th className="p-2 text-right">LN SÀN</th>
+                <th className="p-2 text-right">LN TIKTOK</th>
+                <th className="p-2 text-right">LN CÔNG TY</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {Array.from({ length: currentSession.days }, (_, i) => i + 1).map(day => {
+                const id = String(day);
+                const dateStr = `${day.toString().padStart(2, '0')}/${currentSession.month.toString().padStart(2, '0')}`;
+                
+                const record = kolRecords.find(r => r.id === id) || { 
+                  id, 
+                  date: dateStr,
+                  time: '',
+                  cast: 0,
+                  tro: 0,
+                  gmv: 0,
+                  ads: 0
+                };
+
+                const g = Number(record.gmv) || 0;
+                const a = Number(record.ads) || 0;
+                const c = Number(record.cast) || 0;
+                const t = Number(record.tro) || 0;
+                const p = calculateGenderTotalAndProfits(g, a, c, t);
+
+                const handleChange = (field: keyof KolFinancialRecord, value: any) => {
+                  saveKolFinancial(currentSession.id, {
+                    ...record,
+                    [field]: value
+                  });
+                };
+
+                return (
+                  <tr key={day} className="border-b transition-colors hover:bg-amber-50/30">
+                    <td className="p-2 border-r font-bold text-slate-700 bg-amber-50/50">
+                      {record.date}
+                    </td>
+                    <td className="p-1 border-r">
+                      <Input 
+                        value={record.time || ''} 
+                        onChange={e => handleChange('time', e.target.value)}
+                        placeholder="VD: 2h"
+                        className="h-8 text-center text-xs border-transparent focus:border-amber-300 shadow-none"
+                      />
+                    </td>
+                    <td className="p-1 border-r">
+                      <Input 
+                        className="h-8 text-right font-medium text-xs border-transparent focus:border-amber-300 shadow-none" 
+                        value={record.cast === 0 ? '' : formatCurrency(record.cast)}
+                        onChange={(e) => handleChange('cast', parseCurrency(e.target.value))}
+                      />
+                    </td>
+                    <td className="p-1 border-r">
+                      <Input 
+                        className="h-8 text-right font-medium text-xs border-transparent focus:border-amber-300 shadow-none" 
+                        value={record.tro === 0 ? '' : formatCurrency(record.tro)}
+                        onChange={(e) => handleChange('tro', parseCurrency(e.target.value))}
+                      />
+                    </td>
+                    <td className="p-1 border-r bg-blue-50/30">
+                      <Input 
+                        className="h-8 text-right font-bold text-blue-800 text-xs border-transparent focus:border-blue-300 shadow-none" 
+                        value={record.gmv === 0 ? '' : formatCurrency(record.gmv)}
+                        onChange={(e) => handleChange('gmv', parseCurrency(e.target.value))}
+                      />
+                    </td>
+                    <td className="p-1 border-r bg-red-50/30">
+                      <Input 
+                        className="h-8 text-right font-bold text-red-600 text-xs border-transparent focus:border-red-300 shadow-none" 
+                        value={record.ads === 0 ? '' : formatCurrency(record.ads)}
+                        onChange={(e) => handleChange('ads', parseCurrency(e.target.value))}
+                      />
+                    </td>
+                    <td className="p-2 text-right border-r text-slate-600 font-medium">
+                      {formatCurrency(p.fees)}
+                    </td>
+                    <td className="p-2 text-right border-r text-slate-600 font-medium">
+                      {formatCurrency(p.grossProfit)}
+                    </td>
+                    <td className="p-2 text-right border-r text-slate-800 font-bold bg-amber-50/30">
+                      {formatCurrency(p.platformProfit)}
+                    </td>
+                    <td className={cn(
+                      "p-2 text-right border-r font-black",
+                      p.tiktokProfit < 0 ? "text-red-500 bg-red-50" : "text-emerald-600 bg-emerald-50/30"
+                    )}>
+                      {formatCurrency(p.tiktokProfit)}
+                    </td>
+                    <td className="p-2 border-r text-slate-400"></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}

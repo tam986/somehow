@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { Calendar, LayoutDashboard, Database, Settings, LogOut, Plus, Users, X } from "lucide-react";
+import { Calendar, LayoutDashboard, Database, Settings, LogOut, Plus, Users, X, Star } from "lucide-react";
 import { useApp } from "@/lib/store";
 
 interface SidebarProps {
@@ -24,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'schedule', label: 'Xếp Lịch', icon: Calendar },
     { id: 'data', label: 'Nhập Data', icon: Database },
+    { id: 'kol', label: 'Nhập Liệu KOL', icon: Star },
     { id: 'hosts', label: 'Quản Lý Host', icon: Users },
     { id: 'analysis', label: 'Tổng Hợp', icon: LayoutDashboard },
     { id: 'config', label: 'Cấu Hình', icon: Settings },
