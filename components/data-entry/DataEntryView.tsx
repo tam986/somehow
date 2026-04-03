@@ -179,100 +179,83 @@ export default function DataEntryView() {
               </tr>
             </thead>
             <tbody className="bg-white">
-              {(() => {
-                const shiftsToRender: any[] = [];
-                Array.from({ length: currentSession.days }, (_, i) => i + 1).forEach(day => {
-                  SHIFTS.forEach(shift => {
+              {Array.from({ length: currentSession.days }, (_, i) => i + 1).map(day => (
+                <React.Fragment key={day}>
+                  {SHIFTS.map((shift, sIdx) => {
                     const key = `${day}-${shift.id}-${genderFilter}`;
                     const hostId = currentSession.schedule[key];
-                    if (hostId) {
-                      const record = currentSession.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-                      const res = calculateSessionFinance(record, perShiftCostAllocation, supportPerShift);
-                      const host = hosts.find(h => h.id === hostId);
-                      const isWeekend = new Date(currentSession.year, currentSession.month - 1, day).getDay() === 0;
-                      
-                      shiftsToRender.push({
-                        day,
-                        shift,
-                        key,
-                        host,
-                        record,
-                        res,
-                        isWeekend
-                      });
-                    }
-                  });
-                });
+                    if (!hostId) return null;
 
-                // Sắp xếp theo LN Công ty giảm dần (Ranking)
-                const sortedShifts = shiftsToRender.sort((a, b) => b.res.companyProfit - a.res.companyProfit);
+                    const host = hosts.find(h => h.id === hostId);
+                    const record = currentSession.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+                    const res = calculateSessionFinance(record, perShiftCostAllocation, supportPerShift);
+                    
+                    const isWeekend = new Date(currentSession.year, currentSession.month - 1, day).getDay() === 0;
 
-                return sortedShifts.map((item, idx) => {
-                  const { day, shift, key, host, record, res, isWeekend } = item;
-                  return (
-                    <tr key={key} className={cn("border-b hover:bg-slate-50 transition-colors", isWeekend && "bg-slate-50/50")}>
-                      <td className="p-2 border-r sticky left-0 z-10 bg-inherit font-medium border-b flex items-center gap-3">
-                        <span className="text-blue-600 font-black w-4 text-center">{idx + 1}</span>
-                        <div className="flex flex-col">
-                          <span className={cn("text-[10px] font-bold", isWeekend ? "text-red-500" : "text-muted-foreground")}>
-                            {day}/{currentSession.month} ({DAY_NAMES[new Date(currentSession.year, currentSession.month-1, day).getDay()]})
-                          </span>
-                          <span className="text-xs">{shift.name} ({shift.time})</span>
-                        </div>
-                      </td>
-                      <td className="p-1 border-r text-center">
-                        <span className="font-bold text-[10px]" style={{ color: host?.color }}>{host?.name}</span>
-                      </td>
-                      <td className="p-1 border-r bg-blue-50/30">
-                        <Input 
-                          className="h-8 text-right text-[11px] font-bold border-transparent focus:border-blue-300" 
-                          value={record.gmv === 0 ? '' : formatCurrency(record.gmv)}
-                          onChange={(e) => handleInputChange(day, shift.id, 'gmv', e.target.value)}
-                        />
-                      </td>
-                      <td className="p-1 border-r bg-blue-50/30">
-                        <Input 
-                          className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
-                          value={record.ads === 0 ? '' : formatCurrency(record.ads)}
-                          onChange={(e) => handleInputChange(day, shift.id, 'ads', e.target.value)}
-                        />
-                      </td>
-                      <td className="p-1 border-r bg-blue-50/30">
-                        <Input 
-                          className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
-                          value={record.cast === 0 ? '' : formatCurrency(record.cast)}
-                          onChange={(e) => handleInputChange(day, shift.id, 'cast', e.target.value)}
-                        />
-                      </td>
-                      <td className="p-1 border-r bg-blue-50/30 text-right pr-3 font-bold text-slate-600">
-                        {formatCurrency(supportPerShift)}
-                      </td>
-                      <td className="p-1 border-r bg-blue-50/30">
-                        <Input 
-                          className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
-                          value={record.ot === 0 ? '' : formatCurrency(record.ot)}
-                          onChange={(e) => handleInputChange(day, shift.id, 'ot', e.target.value)}
-                        />
-                      </td>
-                      <td className="p-2 text-right border-r font-medium text-slate-500 bg-green-50/20">{formatCurrency(res.fees)}</td>
-                      <td className="p-2 text-right border-r font-medium text-slate-500 bg-green-50/20">{formatCurrency(res.grossProfit)}</td>
-                      <td className="p-2 text-right border-r font-bold text-slate-700 bg-green-50/40">{formatCurrency(res.platformProfit)}</td>
-                      <td className={cn(
-                        "p-2 text-right border-r font-black",
-                        res.tiktokProfit < 0 ? "bg-red-50 text-red-500" : "bg-emerald-50/50 text-emerald-600"
-                      )}>
-                        {formatCurrency(res.tiktokProfit)}
-                      </td>
-                      <td className={cn(
-                        "p-2 text-right font-black border-b border-slate-700",
-                        res.companyProfit < 0 ? "bg-red-950 text-red-400" : "bg-slate-900 text-emerald-400"
-                      )}>
-                        {formatCurrency(res.companyProfit)}
-                      </td>
-                    </tr>
-                  );
-                });
-              })()}
+                    return (
+                      <tr key={key} className={cn("border-b hover:bg-slate-50 transition-colors", isWeekend && "bg-slate-50/50")}>
+                        <td className="p-2 border-r sticky left-0 z-10 bg-inherit font-medium border-b">
+                          <div className="flex flex-col">
+                            <span className={cn("text-[10px] font-bold", isWeekend ? "text-red-500" : "text-muted-foreground")}>
+                              {day}/{currentSession.month} ({DAY_NAMES[new Date(currentSession.year, currentSession.month-1, day).getDay()]})
+                            </span>
+                            <span className="text-xs">{shift.name} ({shift.time})</span>
+                          </div>
+                        </td>
+                        <td className="p-1 border-r text-center">
+                          <span className="font-bold text-[10px]" style={{ color: host?.color }}>{host?.name}</span>
+                        </td>
+                        <td className="p-1 border-r bg-blue-50/30">
+                          <Input 
+                            className="h-8 text-right text-[11px] font-bold border-transparent focus:border-blue-300" 
+                            value={record.gmv === 0 ? '' : formatCurrency(record.gmv)}
+                            onChange={(e) => handleInputChange(day, shift.id, 'gmv', e.target.value)}
+                          />
+                        </td>
+                        <td className="p-1 border-r bg-blue-50/30">
+                          <Input 
+                            className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
+                            value={record.ads === 0 ? '' : formatCurrency(record.ads)}
+                            onChange={(e) => handleInputChange(day, shift.id, 'ads', e.target.value)}
+                          />
+                        </td>
+                        <td className="p-1 border-r bg-blue-50/30">
+                          <Input 
+                            className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
+                            value={record.cast === 0 ? '' : formatCurrency(record.cast)}
+                            onChange={(e) => handleInputChange(day, shift.id, 'cast', e.target.value)}
+                          />
+                        </td>
+                        <td className="p-1 border-r bg-blue-50/30 text-right pr-3 font-bold text-slate-600">
+                          {formatCurrency(supportPerShift)}
+                        </td>
+                        <td className="p-1 border-r bg-blue-50/30">
+                          <Input 
+                            className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
+                            value={record.ot === 0 ? '' : formatCurrency(record.ot)}
+                            onChange={(e) => handleInputChange(day, shift.id, 'ot', e.target.value)}
+                          />
+                        </td>
+                        <td className="p-2 text-right border-r font-medium text-slate-500 bg-green-50/20">{formatCurrency(res.fees)}</td>
+                        <td className="p-2 text-right border-r font-medium text-slate-500 bg-green-50/20">{formatCurrency(res.grossProfit)}</td>
+                        <td className="p-2 text-right border-r font-bold text-slate-700 bg-green-50/40">{formatCurrency(res.platformProfit)}</td>
+                        <td className={cn(
+                          "p-2 text-right border-r font-black",
+                          res.tiktokProfit < 0 ? "bg-red-50 text-red-500" : "bg-emerald-50/50 text-emerald-600"
+                        )}>
+                          {formatCurrency(res.tiktokProfit)}
+                        </td>
+                        <td className={cn(
+                          "p-2 text-right font-black border-b border-slate-700",
+                          res.companyProfit < 0 ? "bg-red-950 text-red-400" : "bg-slate-900 text-emerald-400"
+                        )}>
+                          {formatCurrency(res.companyProfit)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
