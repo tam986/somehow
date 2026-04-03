@@ -62,7 +62,6 @@ export default function KolDataEntryView() {
             <thead>
               <tr className="bg-slate-900 text-amber-50 uppercase text-xs tracking-wider">
                 <th className="p-2 text-left w-24 sticky left-0 z-20 bg-slate-900 border-r border-slate-700">NGÀY</th>
-                <th className="p-2 text-left w-24">THỜI GIAN</th>
                 <th className="p-2 text-center">CAST HOST</th>
                 <th className="p-2 text-center">GMV</th>
                 <th className="p-2 text-center">ADS</th>
@@ -80,7 +79,6 @@ export default function KolDataEntryView() {
                 const record = kolRecords.find(r => r.id === id) || { 
                   id, 
                   date: dateStr,
-                  time: '',
                   cast: 0,
                   tro: 0,
                   gmv: 0,
@@ -104,14 +102,7 @@ export default function KolDataEntryView() {
                     <td className="p-2 border-r font-bold text-slate-700 bg-amber-50/50">
                       {record.date}
                     </td>
-                    <td className="p-1 border-r">
-                      <Input 
-                        value={record.time || ''} 
-                        onChange={e => handleChange('time', e.target.value)}
-                        placeholder="VD: 2h"
-                        className="h-8 text-center text-xs border-transparent focus:border-amber-300 shadow-none"
-                      />
-                    </td>
+                   
                     <td className="p-1 border-r bg-slate-50">
                       <Input 
                         readOnly

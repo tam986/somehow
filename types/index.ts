@@ -36,7 +36,6 @@ export interface FinancialRecord {
 export interface KolFinancialRecord {
   id: string;
   date: string;
-  time: string;
   cast: number;
   tro: number;
   gmv: number;

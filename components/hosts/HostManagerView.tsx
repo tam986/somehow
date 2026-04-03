@@ -84,7 +84,7 @@ export default function HostManagerView() {
     const formState = isEditing ? editForm : hostParam;
     const host = hostParam;
     
-    // Tổng LN TikTok trong tháng hiện tại (chỉ để hiển thị cột currentIncome như cũ)
+    // Tổng LN Công ty trong tháng hiện tại (chỉ để hiển thị cột currentIncome như cũ)
     let currentIncome = 0;
     if (currentSession) {
       Object.entries(currentSession.schedule).forEach(([key, hId]) => {
@@ -93,8 +93,11 @@ export default function HostManagerView() {
           const totalSessionsAll = (currentSession.totalSessionsFemale || 0) + (currentSession.totalSessionsMale || 0);
           const supportPerShift = totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
           
-          const res = calculateSessionFinance(currentSession.financials[key], 0, supportPerShift);
-          currentIncome += res.tiktokProfit;
+          const capital = currentSession.capital || 0;
+          const perShiftCost = totalSessionsAll > 0 ? capital / totalSessionsAll : 0;
+
+          const res = calculateSessionFinance(currentSession.financials[key], perShiftCost, supportPerShift);
+          currentIncome += res.companyProfit;
         }
       });
     }
@@ -252,7 +255,7 @@ export default function HostManagerView() {
                 <th className="p-3 text-left">Giới Tính</th>
                 <th className="p-3 text-left">Nhóm</th>
                 <th className="p-3 text-left">Màu Sắc</th>
-                <th className="p-3 text-left">Lợi Nhuận Tiktok (Tháng)</th>
+                <th className="p-3 text-left">Lợi Nhuận Công Ty (Tháng)</th>
                 <th className="p-3 text-right">Thao Tác</th>
               </tr>
             </thead>

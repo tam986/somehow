@@ -82,7 +82,7 @@ export default function DashboardView() {
         return {
           ...s,
           host: { ...s.host, group: currentGroup },
-          lnTkPerShift: s.count > 0 ? s.lnTikTok / s.count : 0
+          lnCtyPerShift: s.count > 0 ? s.lnCty / s.count : 0
         };
       });
   }, [dashboardSessionId, state.sessions, hosts]);
@@ -433,7 +433,7 @@ export default function DashboardView() {
                     <p className="text-3xl font-black text-white italic">{hostStats[0].host.name}</p>
                     <p className="text-sm text-emerald-400 font-bold mt-2 flex items-center gap-1">
                       <TrendingUp size={14} />
-                      {formatCurrency(hostStats[0].lnTkPerShift)} / Ca live
+                      {formatCurrency(hostStats[0].lnCtyPerShift)} / Ca live
                     </p>
                     <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
                       <div className="grid grid-cols-2 gap-4">
@@ -475,7 +475,7 @@ export default function DashboardView() {
                     <th className="p-3 text-right">LN Sàn</th>
                     <th className="p-3 text-right font-bold text-emerald-600">LN TikTok</th>
                     <th className="p-3 text-right font-bold text-blue-600">LN Công Ty ▾</th>
-                    <th className="p-3 text-right bg-yellow-50 font-black text-slate-900">LN TK/ca</th>
+                    <th className="p-3 text-right bg-yellow-50 font-black text-slate-900">LN CTY/ca</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -506,8 +506,8 @@ export default function DashboardView() {
                       <td className={cn("p-3 text-right font-bold tabular-nums", s.lnCty < 0 ? "text-red-500" : "text-emerald-600")}>
                         {formatCurrency(s.lnCty)}
                       </td>
-                      <td className={cn("p-3 text-right font-bold tabular-nums", s.lnTkPerShift < 0 ? "text-red-500" : "text-emerald-600")}>
-                        {formatCurrency(s.lnTkPerShift)}
+                      <td className={cn("p-3 text-right font-bold tabular-nums", s.lnCtyPerShift < 0 ? "text-red-500" : "text-emerald-600")}>
+                        {formatCurrency(s.lnCtyPerShift)}
                       </td>
                     </tr>
                   ))}
@@ -523,7 +523,7 @@ export default function DashboardView() {
                     <td className="p-4 text-right text-emerald-400">{formatCurrency(totals.lnTikTok)}</td>
                     <td className="p-4 text-right text-blue-400">{formatCurrency(totals.lnCty)}</td>
                     <td className="p-4 text-right bg-yellow-600 text-white">
-                      {formatCurrency(totals.count > 0 ? totals.lnTikTok / totals.count : 0)}
+                      {formatCurrency(totals.count > 0 ? totals.lnCty / totals.count : 0)}
                     </td>
                   </tr>
                 </tfoot>
