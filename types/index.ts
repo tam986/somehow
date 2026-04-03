@@ -59,6 +59,7 @@ export interface MonthSession {
   totalSessions: number; // Mặc định/Tương thích cũ
   totalSessionsFemale: number;
   totalSessionsMale: number;
+  supportSalary: number;
   schedule: Schedule;
   financials: { [key: string]: FinancialRecord }; // "day-shiftIndex" -> FinancialRecord
   kolFinancials: KolFinancialRecord[];

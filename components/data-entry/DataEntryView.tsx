@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { TrendingUp, DollarSign, PieChart, Users } from 'lucide-react';
 
 export default function DataEntryView() {
-  const { state, updateFinancials, updateSessionMeta } = useApp();
+  const { state, updateFinancials, updateSessionMeta, updateSupportSalary } = useApp();
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const hosts = state.hosts;
 
@@ -35,6 +35,14 @@ export default function DataEntryView() {
     return totalSessions > 0 ? capital / totalSessions : 0;
   }, [capital, totalSessions]);
 
+  const totalSessionsWomen = currentSession?.totalSessionsFemale ?? currentSession?.totalSessions ?? 129;
+  const totalSessionsMen = currentSession?.totalSessionsMale ?? currentSession?.totalSessions ?? 129;
+  const totalSessionsAll = totalSessionsWomen + totalSessionsMen;
+  const supportSalary = currentSession?.supportSalary ?? 0;
+  const supportPerShift = useMemo(() => {
+    return totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
+  }, [supportSalary, totalSessionsAll]);
+
   const summary = useMemo(() => {
     if (!currentSession) return null;
     let totalGMV = 0;
@@ -46,14 +54,14 @@ export default function DataEntryView() {
       const hostId = currentSession.schedule[key];
       if (!hostId) return;
 
-      const res = calculateSessionFinance(record, perShiftCostAllocation);
+      const res = calculateSessionFinance(record, perShiftCostAllocation, supportPerShift);
       totalGMV += record.gmv;
       totalTikTokLN += res.tiktokProfit;
       totalCompanyLN += res.companyProfit;
     });
 
     return { totalGMV, totalTikTokLN, totalCompanyLN };
-  }, [currentSession, perShiftCostAllocation, genderFilter]);
+  }, [currentSession, perShiftCostAllocation, supportPerShift, genderFilter]);
 
   if (!currentSession) return null;
 
@@ -103,6 +111,21 @@ export default function DataEntryView() {
               value={totalSessions || ''}
               onChange={(e) => updateSessionMeta(currentSession.id, capital, parseInt(e.target.value) || 0, genderFilter)}
             />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-bold uppercase text-slate-500">Tiền Lương chung:</label>
+            <Input 
+              type="text" 
+              className="w-40 h-8 text-right font-bold text-orange-700 bg-orange-50/50" 
+              value={formatCurrency(supportSalary)}
+              onChange={(e) => updateSupportSalary(currentSession.id, parseCurrency(e.target.value))}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-bold uppercase text-slate-500">Tiền Trợ / Ca:</label>
+            <div className="w-32 h-8 flex items-center justify-end px-3 font-bold text-orange-950 bg-orange-100/50 rounded-md border border-orange-200">
+              {formatCurrency(supportPerShift)}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -165,7 +188,7 @@ export default function DataEntryView() {
 
                     const host = hosts.find(h => h.id === hostId);
                     const record = currentSession.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-                    const res = calculateSessionFinance(record, perShiftCostAllocation);
+                    const res = calculateSessionFinance(record, perShiftCostAllocation, supportPerShift);
                     
                     const isWeekend = new Date(currentSession.year, currentSession.month - 1, day).getDay() === 0;
 
@@ -203,12 +226,8 @@ export default function DataEntryView() {
                             onChange={(e) => handleInputChange(day, shift.id, 'cast', e.target.value)}
                           />
                         </td>
-                        <td className="p-1 border-r bg-blue-50/30">
-                          <Input 
-                            className="h-8 text-right text-[11px] border-transparent focus:border-blue-300" 
-                            value={record.tro === 0 ? '' : formatCurrency(record.tro)}
-                            onChange={(e) => handleInputChange(day, shift.id, 'tro', e.target.value)}
-                          />
+                        <td className="p-1 border-r bg-blue-50/30 text-right pr-3 font-bold text-slate-600">
+                          {formatCurrency(supportPerShift)}
                         </td>
                         <td className="p-1 border-r bg-blue-50/30">
                           <Input 

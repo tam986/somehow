@@ -54,14 +54,17 @@ export default function DashboardView() {
           ? (session.totalSessionsMale ?? session.totalSessions ?? 129)
           : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
         const perShiftCost = totalSessions > 0 ? capital / totalSessions : 0;
+        const supportSalary = session.supportSalary || 0;
+        const totalSessionsAll = (session.totalSessionsFemale || 0) + (session.totalSessionsMale || 0);
+        const supportPerShift = totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
 
         const record = session.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
-        const res = calculateSessionFinance(record, perShiftCost);
+        const res = calculateSessionFinance(record, perShiftCost, supportPerShift);
 
         stats[hostId].count += 1;
         stats[hostId].gmv += record.gmv;
         stats[hostId].ads += record.ads;
-        stats[hostId].cpHost += (record.cast + record.tro + record.ot);
+        stats[hostId].cpHost += (record.cast + supportPerShift + record.ot);
         stats[hostId].lnSan += res.platformProfit;
         stats[hostId].lnTikTok += res.tiktokProfit;
         stats[hostId].lnCty += res.companyProfit;
@@ -127,13 +130,18 @@ export default function DashboardView() {
           ? (session.totalSessionsMale ?? session.totalSessions ?? 129)
           : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
         const perShiftCost = totalSessionsGender > 0 ? capital / totalSessionsGender : 0;
-        const res = calculateSessionFinance(record, perShiftCost);
+        
+        const supportSalary = session.supportSalary || 0;
+        const totalSessionsAll = (session.totalSessionsFemale || 0) + (session.totalSessionsMale || 0);
+        const supportPerShift = totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
+        
+        const res = calculateSessionFinance(record, perShiftCost, supportPerShift);
         
         const target = host.gender === 'male' ? menRaw : womenRaw;
         target.gmv += record.gmv;
         target.ads += record.ads;
         target.cast += record.cast;
-        target.tro += record.tro;
+        target.tro += supportPerShift;
         target.fees += res.fees;
         target.grossProfit += res.grossProfit;
         target.platformProfit += res.platformProfit;

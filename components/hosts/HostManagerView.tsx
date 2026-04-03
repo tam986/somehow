@@ -89,7 +89,11 @@ export default function HostManagerView() {
     if (currentSession) {
       Object.entries(currentSession.schedule).forEach(([key, hId]) => {
         if (hId === host.id && currentSession.financials[key]) {
-          const res = calculateSessionFinance(currentSession.financials[key], 0);
+          const supportSalary = currentSession.supportSalary || 0;
+          const totalSessionsAll = (currentSession.totalSessionsFemale || 0) + (currentSession.totalSessionsMale || 0);
+          const supportPerShift = totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
+          
+          const res = calculateSessionFinance(currentSession.financials[key], 0, supportPerShift);
           currentIncome += res.tiktokProfit;
         }
       });

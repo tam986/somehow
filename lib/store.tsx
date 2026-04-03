@@ -11,6 +11,7 @@ interface AppContextType {
   updateSessionMeta: (sessionId: string, capital: number, totalSessions: number, gender: 'female' | 'male') => void;
   updateSchedule: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', hostId: string | null) => void;
   updateFinancials: (sessionId: string, day: number, shift: number, gender: 'female' | 'male', field: keyof FinancialRecord, value: number) => void;
+  updateSupportSalary: (sessionId: string, value: number) => void;
   setCurrentSession: (id: string) => void;
   setLockedHosts: (sessionId: string, hostIds: string[]) => void;
   resetAll: () => void;
@@ -77,6 +78,7 @@ const sanitizeState = (rawState: any): AppState => {
       totalSessions: s.totalSessions || 129,
       totalSessionsFemale: s.totalSessionsFemale || s.totalSessions || 129,
       totalSessionsMale: s.totalSessionsMale || s.totalSessions || 129,
+      supportSalary: s.supportSalary || 0,
       gmvMaxWomen: s.gmvMaxWomen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
       gmvMaxMen: s.gmvMaxMen || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0, fees: 0, grossProfit: 0, platformProfit: 0, tiktokProfit: 0, companyProfit: 0 },
       kolCompanyProfitWomen: s.kolCompanyProfitWomen || 0,
@@ -165,6 +167,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalSessions: 129,
       totalSessionsFemale: 129,
       totalSessionsMale: 129,
+      supportSalary: 0,
       schedule: {},
       financials: {},
       kolFinancials: [],
@@ -209,6 +212,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             [key]: { ...record, [field]: value }
           }
         };
+      });
+      return { ...prev, sessions };
+    });
+  };
+
+  const updateSupportSalary = (sessionId: string, value: number) => {
+    setState(prev => {
+      const sessions = prev.sessions.map(s => {
+        if (s.id === sessionId) {
+          return { ...s, supportSalary: value };
+        }
+        return s;
       });
       return { ...prev, sessions };
     });
@@ -337,6 +352,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateSessionMeta,
       updateSchedule, 
       updateFinancials, 
+      updateSupportSalary,
       setCurrentSession,
       setLockedHosts,
       resetAll,

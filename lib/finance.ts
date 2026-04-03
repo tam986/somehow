@@ -7,13 +7,17 @@ export interface CalcResult {
   platformProfit: number;
   tiktokProfit: number;
   companyProfit: number;
+  supplierProfit: number;
 }
 
 export const calculateSessionFinance = (
   record: FinancialRecord,
-  perShiftCostAllocation: number
+  perShiftCostAllocation: number,
+  perShiftSupportAllocation: number
 ): CalcResult => {
-  const { gmv, ads, cast, tro, ot } = record;
+  const { gmv, ads, cast, ot } = record;
+  // record.tro is ignored as it is now calculated based on salary
+  const tro = perShiftSupportAllocation;
 
   const fees = Math.round(gmv * 0.17);
   const grossProfit = Math.round(gmv * 0.39);
@@ -26,7 +30,8 @@ export const calculateSessionFinance = (
     grossProfit,
     platformProfit,
     tiktokProfit,
-    companyProfit
+    companyProfit,
+    supplierProfit: 0 // Default value for supplierProfit if needed
   };
 };
 
@@ -77,7 +82,11 @@ export const computeRankedHosts = (hosts: any[], sessions: any[], filterSessionI
           : (session.totalSessionsFemale ?? session.totalSessions ?? 129);
 
         const costPerShift = totalSessions > 0 ? capital / totalSessions : 0;
-        const res = calculateSessionFinance(record, costPerShift);
+        const supportSalary = session.supportSalary || 0;
+        const totalSessionsAll = (session.totalSessionsFemale || 0) + (session.totalSessionsMale || 0);
+        const supportPerShift = totalSessionsAll > 0 ? supportSalary / totalSessionsAll : 0;
+
+        const res = calculateSessionFinance(record, costPerShift, supportPerShift);
         incomes[hostId] += res.companyProfit;
       }
     });
