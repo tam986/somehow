@@ -147,7 +147,7 @@ export default function KolDataEntryView() {
             </tbody>
             <tfoot className="sticky bottom-0 z-10">
               <tr className="bg-slate-900 text-white font-bold">
-                <td colSpan={2} className="p-3 text-center uppercase tracking-wider border-r border-slate-700">TỔNG CỘNG</td>
+                <td colSpan={1} className="p-3 text-center uppercase tracking-wider border-r border-slate-700">TỔNG CỘNG</td>
                 <td className="p-3 text-right border-r border-slate-700">{formatCurrency(totals.cast)}</td>
                 <td className="p-3 text-right border-r border-slate-700 text-blue-400">{formatCurrency(totals.gmv)}</td>
                 <td className="p-3 text-right border-r border-slate-700 text-red-400">{formatCurrency(totals.ads)}</td>
