@@ -7,7 +7,7 @@ import { formatCurrency, parseCurrency, calculateSessionFinance } from '@/lib/fi
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
-import { TrendingUp, DollarSign, PieChart, Users } from 'lucide-react';
+import { TrendingUp, DollarSign, PieChart, Users, Download } from 'lucide-react';
 
 export default function DataEntryView() {
   const { state, updateFinancials, updateSessionMeta, updateSupportSalary } = useApp();
@@ -63,11 +63,90 @@ export default function DataEntryView() {
     return { totalGMV, totalTikTokLN, totalCompanyLN };
   }, [currentSession, perShiftCostAllocation, supportPerShift, genderFilter]);
 
+  const shiftStats = useMemo(() => {
+    if (!currentSession) return [];
+
+    const stats = SHIFTS.map(shift => {
+      let totalGMV = 0;
+      for (let day = 1; day <= currentSession.days; day++) {
+        const key = `${day}-${shift.id}-${genderFilter}`;
+        const record = currentSession.financials[key];
+        if (record && record.gmv) {
+          totalGMV += record.gmv;
+        }
+      }
+      return {
+        ...shift,
+        totalGMV
+      };
+    });
+
+    return stats.filter(s => s.totalGMV > 0).sort((a, b) => b.totalGMV - a.totalGMV);
+  }, [currentSession, genderFilter]);
+
   if (!currentSession) return null;
 
   const handleInputChange = (day: number, shift: number, field: any, value: string) => {
     const numValue = parseCurrency(value);
     updateFinancials(currentSession.id, day, shift, genderFilter, field, numValue);
+  };
+
+  const handleExportCSV = () => {
+    if (!currentSession) return;
+    
+    const headers = [
+      "Ngày/Tháng", "Ca", "Host", "GMV", "ADS", "CAST", "TRỢ", "OT", 
+      "Phí Sàn (17%)", "LN Gộp (39%)", "LN Sàn", "LN TikTok", "LN Công Ty"
+    ];
+    
+    const rows = [headers.join(",")];
+    
+    Array.from({ length: currentSession.days }, (_, i) => i + 1).forEach(day => {
+      SHIFTS.forEach(shift => {
+        const key = `${day}-${shift.id}-${genderFilter}`;
+        const hostId = currentSession.schedule[key];
+        if (!hostId) return;
+        
+        const host = hosts.find(h => h.id === hostId);
+        const record = currentSession.financials[key] || { gmv: 0, ads: 0, cast: 0, tro: 0, ot: 0 };
+        const res = calculateSessionFinance(record, perShiftCostAllocation, supportPerShift);
+        
+        const dateStr = `${day}/${currentSession.month}`;
+        const shiftStr = `${shift.name} (${shift.time})`;
+        const hostName = host?.name || '';
+        
+        const row = [
+          dateStr,
+          shiftStr,
+          hostName,
+          record.gmv,
+          record.ads,
+          record.cast,
+          supportPerShift,
+          record.ot,
+          res.fees,
+          res.grossProfit,
+          res.platformProfit,
+          res.tiktokProfit,
+          res.companyProfit
+        ];
+        
+        rows.push(row.map(val => {
+          if (typeof val === 'string') return `"${val.replace(/"/g, '""')}"`;
+          return val;
+        }).join(","));
+      });
+    });
+
+    const csvContent = "\uFEFF" + rows.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `NhapLieu_${genderFilter.toUpperCase()}_Thang${currentSession.month}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -89,6 +168,14 @@ export default function DataEntryView() {
             MEN
           </button>
         </div>
+        
+        <button
+          onClick={handleExportCSV}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-md shadow-sm flex items-center gap-2 transition-colors"
+        >
+          <Download size={16} />
+          Xuất dữ liệu
+        </button>
       </div>
 
       {/* Session Settings */}
@@ -158,6 +245,27 @@ export default function DataEntryView() {
           subtitle={`PB/Ca: ${formatCurrency(perShiftCostAllocation)}`}
         />
       </div>
+
+      {/* Thống Kê Giờ Live Theo GMV */}
+      <Card className="border shadow-sm bg-white">
+        <CardContent className="p-4">
+          <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <TrendingUp size={18} className="text-blue-500" />
+            Thống Kê Ca Live Theo GMV (Từ Cao xuống Thấp)
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {shiftStats.map((stat) => (
+               <div key={stat.id} className="p-3 bg-slate-50 border rounded-lg flex flex-col items-center justify-center">
+                 <span className="text-xs font-bold text-slate-500 mb-1">{stat.name} ({stat.time})</span>
+                 <span className="text-sm font-black text-blue-700">{formatCurrency(stat.totalGMV)}</span>
+               </div>
+            ))}
+            {shiftStats.length === 0 && (
+              <div className="col-span-full text-center text-sm text-slate-400 py-4">Chưa có dữ liệu GMV cho tháng này</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-none shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
